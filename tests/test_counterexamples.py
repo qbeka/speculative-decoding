@@ -51,9 +51,7 @@ def test_resampling_from_the_target_after_rejection_is_wrong(monkeypatch):
 
 def test_a_residual_taken_from_the_wrong_row_is_caught(monkeypatch):
     original = specdec.sampling.residual_distribution
-    monkeypatch.setattr(
-        specdec.sampling, "residual_distribution", lambda p, q: original(q, p)
-    )
+    monkeypatch.setattr(specdec.sampling, "residual_distribution", lambda p, q: original(q, p))
     assert law_gap(table_model(3, "target"), table_model(3, "draft"), 3) > 0.01
 
 

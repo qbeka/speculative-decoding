@@ -25,7 +25,9 @@ def chi_square_p_value(observed: Counter, expected: dict, draws: int) -> float:
         for outcome, probability in expected.items()
     )
     degrees = len(expected) - 1
-    return float(torch.special.gammaincc(torch.tensor(degrees / 2.0), torch.tensor(statistic / 2.0)))
+    return float(
+        torch.special.gammaincc(torch.tensor(degrees / 2.0), torch.tensor(statistic / 2.0))
+    )
 
 
 def sample_counts(target_fn, draft_fn, draws, seed, block_length=2):
@@ -43,7 +45,9 @@ def sample_counts(target_fn, draft_fn, draws, seed, block_length=2):
 
 
 def expected_law(target_fn):
-    return target_law(lambda prefix: to_probabilities(target_fn(prefix), SamplingConfig()), (0,), 2, None)
+    return target_law(
+        lambda prefix: to_probabilities(target_fn(prefix), SamplingConfig()), (0,), 2, None
+    )
 
 
 def test_draws_match_the_exact_target_law():

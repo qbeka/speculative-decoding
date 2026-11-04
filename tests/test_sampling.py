@@ -56,7 +56,9 @@ def test_residual_falls_back_to_target_when_mass_is_only_rounding():
 def test_identical_distributions_never_reject():
     p = distribution(0.25, 0.75)
     outcomes = exact_law(
-        lambda rng: (verify_block(p[None].repeat(3, 1), p[None].repeat(2, 1), [0, 1], rng).accepted,)
+        lambda rng: (
+            verify_block(p[None].repeat(3, 1), p[None].repeat(2, 1), [0, 1], rng).accepted,
+        )
     )
     assert outcomes == {(2,): pytest.approx(1.0)}
 
@@ -87,9 +89,7 @@ def test_greedy_ties_go_to_the_lowest_token_id():
 
 
 def test_greedy_keeps_matches_and_corrects_the_first_mismatch():
-    logits = torch.stack(
-        [distribution(0.0, 9.0), distribution(9.0, 0.0), distribution(0.0, 9.0)]
-    )
+    logits = torch.stack([distribution(0.0, 9.0), distribution(9.0, 0.0), distribution(0.0, 9.0)])
     outcome = verify_greedy(logits, [1, 1])
     assert (outcome.accepted, outcome.next_token, outcome.rejected_at) == (1, 0, 1)
 

@@ -1,0 +1,17 @@
+{
+  "device": "mps",
+  "rows": [
+    {
+      "dtype": "float16",
+      "positions": 360,
+      "median_tv": 0.002746673533692956,
+      "max_tv": 0.020341528579592705
+    },
+    {
+      "dtype": "float32",
+      "positions": 360,
+      "median_tv": 4.71671864943346e-06,
+      "max_tv": 4.074960088473745e-05
+    }
+  ]
+}

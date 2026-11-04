@@ -15,8 +15,9 @@ from tests.toy import fixed_distribution_model, run_engine, table_model
 ROUNDING = 1e-11
 
 
-def assert_matches_target(target_fn, draft_fn, *, max_new_tokens=3, eos=None, policy=None,
-                          sampling=None):
+def assert_matches_target(
+    target_fn, draft_fn, *, max_new_tokens=3, eos=None, policy=None, sampling=None
+):
     prompt = (0,)
     sampling = sampling or SamplingConfig()
 
@@ -121,8 +122,9 @@ def test_every_path_stays_within_budget():
     target_fn, draft_fn = table_model(2, "target"), table_model(2, "draft")
     law = exact_law(
         lambda rng: tuple(
-            run_engine(target_fn, draft_fn, rng, max_new_tokens=4, policy=fixed_block_length(9))
-            .new_tokens
+            run_engine(
+                target_fn, draft_fn, rng, max_new_tokens=4, policy=fixed_block_length(9)
+            ).new_tokens
         )
     )
     assert {len(sequence) for sequence in law} == {4}
