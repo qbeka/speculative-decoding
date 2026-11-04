@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 
+from specdec.bench import Arm, run_arm
 from specdec.data import file_sha256, prepare_data
 from specdec.distill import TrainConfig, record_teacher_sequences, train_draft
 from specdec.generate import GenerationConfig, fixed_block_length, generate
@@ -107,6 +108,11 @@ def run_distill(args: argparse.Namespace) -> None:
     print(summary["train_s"], summary["parameters"], summary["log"][-1])
 
 
+def run_one_arm(args: argparse.Namespace) -> None:
+    arm = Arm(**json.loads(args.arm))
+    run_arm(arm, args.workload, args.repeat, args.out, args.device, args.limit, args.cold)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="specdec", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -119,6 +125,16 @@ def build_parser() -> argparse.ArgumentParser:
     add_sampling_arguments(generate_parser)
     add_model_arguments(generate_parser)
     generate_parser.set_defaults(run=run_generate)
+
+    arm_parser = commands.add_parser("arm", help="run one benchmark arm in this process")
+    arm_parser.add_argument("--arm", required=True, help="the arm as a JSON object")
+    arm_parser.add_argument("--workload", required=True)
+    arm_parser.add_argument("--repeat", type=int, default=0)
+    arm_parser.add_argument("--out", type=Path, required=True)
+    arm_parser.add_argument("--device", default=best_device())
+    arm_parser.add_argument("--limit", type=int)
+    arm_parser.add_argument("--cold", action="store_true")
+    arm_parser.set_defaults(run=run_one_arm)
 
     data_parser = commands.add_parser("prepare-data", help="write every workload file")
     data_parser.set_defaults(run=run_prepare_data)

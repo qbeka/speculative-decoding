@@ -295,7 +295,8 @@ def coffee(rng):
         f"{item.name} x{item.quantity} {plain(item.amount, facts.currency)}" for item in facts.items
     ]
     lines += [
-        f"sub {plain(facts.subtotal, facts.currency)} tax {plain(facts.taxes[0][1], facts.currency)} "
+        f"sub {plain(facts.subtotal, facts.currency)} "
+        f"tax {plain(facts.taxes[0][1], facts.currency)} "
         f"tip {plain(facts.tip, facts.currency)}",
         f"total {facts.currency} {plain(facts.total, facts.currency)}",
     ]
@@ -399,7 +400,8 @@ def bookstore(rng):
         for item in facts.items
     ]
     lines += [
-        f"Goods {plain(facts.subtotal, facts.currency)}; GST {plain(facts.taxes[0][1], facts.currency)}",
+        f"Goods {plain(facts.subtotal, facts.currency)}; "
+        f"GST {plain(facts.taxes[0][1], facts.currency)}",
         f"Pay {facts.currency} {plain(facts.total, facts.currency)}",
     ]
     return facts, "\n".join(lines)
