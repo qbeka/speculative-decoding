@@ -9,6 +9,7 @@ import torch
 from specdec.bench import Arm, run_arm
 from specdec.data import file_sha256, prepare_data
 from specdec.distill import TrainConfig, record_teacher_sequences, train_draft
+from specdec.experiments import run_final, run_validation
 from specdec.generate import GenerationConfig, fixed_block_length, generate
 from specdec.models import (
     DRAFT_135M,
@@ -113,6 +114,16 @@ def run_one_arm(args: argparse.Namespace) -> None:
     run_arm(arm, args.workload, args.repeat, args.out, args.device, args.limit, args.cold)
 
 
+def run_validate(args: argparse.Namespace) -> None:
+    drafts = [json.loads(draft) for draft in args.draft_arm]
+    selection = run_validation(args.out, drafts, args.temperature, args.batch_size)
+    print(json.dumps({key: value["best_fixed"] for key, value in selection["choices"].items()}))
+
+
+def run_frozen(args: argparse.Namespace) -> None:
+    run_final(args.frozen, args.out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="specdec", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -135,6 +146,20 @@ def build_parser() -> argparse.ArgumentParser:
     arm_parser.add_argument("--limit", type=int)
     arm_parser.add_argument("--cold", action="store_true")
     arm_parser.set_defaults(run=run_one_arm)
+
+    validate_parser = commands.add_parser("validate", help="sweep settings on validation prompts")
+    validate_parser.add_argument("--out", type=Path, required=True)
+    validate_parser.add_argument(
+        "--draft-arm", action="append", required=True, help='for example {"draft": "135m"}'
+    )
+    validate_parser.add_argument("--temperature", type=float, default=0.7)
+    validate_parser.add_argument("--batch-size", type=int, action="append", default=None)
+    validate_parser.set_defaults(run=run_validate)
+
+    final_parser = commands.add_parser("final", help="run the frozen plan on test prompts")
+    final_parser.add_argument("--frozen", type=Path, default=Path("config/frozen.json"))
+    final_parser.add_argument("--out", type=Path, required=True)
+    final_parser.set_defaults(run=run_frozen)
 
     data_parser = commands.add_parser("prepare-data", help="write every workload file")
     data_parser.set_defaults(run=run_prepare_data)

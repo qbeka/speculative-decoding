@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
 
+import torch
+
 BOOTSTRAP_SAMPLES = 10_000
 BOOTSTRAP_SEED = 20260314
 
@@ -161,8 +163,6 @@ def fit_cost_prior(records: list[dict]) -> dict:
 
 
 def _least_squares(rows: list[tuple[float, float, float]]) -> tuple[float, float, float]:
-    import torch
-
     data = torch.tensor(rows, dtype=torch.float64)
     design = torch.stack([torch.ones(len(rows), dtype=torch.float64), data[:, 0], data[:, 1]], 1)
     solution = torch.linalg.lstsq(design, data[:, 2:], driver="gelsd").solution.squeeze(1)
