@@ -1,0 +1,10 @@
+{
+  "sequences": 1200,
+  "generated_tokens": 101897,
+  "wall_s": 1192.2417962500185,
+  "device": "mps",
+  "temperature": 0.7,
+  "max_new_tokens": 128,
+  "batch_size": 16,
+  "seed": 0
+}
