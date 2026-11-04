@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speculative Decoding Replay</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --panel: #f4f3f0;
+  --line: #dddcd6;
+  --text: #0b0b0b;
+  --muted: #52514e;
+  --accepted: #2a78d6;
+  --accepted-wash: #dcebfb;
+  --rejected: #eb6834;
+  --target: #8b8a84;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --panel: #242422;
+    --line: #3a3a37;
+    --text: #f0efec;
+    --muted: #c3c2b7;
+    --accepted: #3987e5;
+    --accepted-wash: #1f3550;
+    --rejected: #d95926;
+    --target: #8b8a84;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 15px; margin: 0; }
+.lede { color: var(--muted); margin: 0 0 16px; max-width: 760px; }
+.notice {
+  border-left: 3px solid var(--target);
+  padding: 8px 12px;
+  background: var(--panel);
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 16px; }
+select, button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 10px;
+  max-width: 100%;
+}
+button { cursor: pointer; min-width: 76px; }
+input[type=range] { flex: 1 1 200px; min-width: 0; }
+.clock { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.arm { background: var(--panel); border-radius: 8px; padding: 12px; min-width: 0; }
+.arm header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.stat { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.output {
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  height: 260px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+.output .draft { background: var(--accepted-wash); border-radius: 2px; }
+.output .target { border-bottom: 1px dotted var(--target); }
+.output .corrected { border-bottom: 2px solid var(--rejected); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 12px 0 20px; }
+.legend i { display: inline-block; width: 22px; height: 12px; margin-right: 6px; vertical-align: -1px; border-radius: 2px; }
+.lane { margin-bottom: 12px; }
+.lane-title { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+.lane svg { width: 100%; height: 56px; display: block; }
+.lane rect.block { cursor: pointer; }
+.lane rect.block:hover, .lane rect.block.chosen { stroke: var(--text); stroke-width: 1; }
+.playhead { stroke: var(--text); stroke-width: 1; }
+.detail { background: var(--panel); border-radius: 8px; padding: 14px; font-size: 14px; }
+.detail p { margin: 0 0 10px; max-width: 760px; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+th, td { text-align: right; padding: 3px 12px 3px 0; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; }
+tr.picked td { font-weight: 650; }
+.table-wrap { overflow-x: auto; }
+@media (max-width: 820px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .output { height: 170px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Speculative decoding replay</h1>
+  <p class="lede">Three decoders, one prompt, played back from recorded timestamps. Delivered tokens
+  are verified against the target model. Rejected draft tokens never reach the output.</p>
+  <div class="notice" id="provenance"></div>
+
+  <div class="controls">
+    <select id="trace" aria-label="Recorded prompt"></select>
+    <button id="play">Play</button>
+    <select id="speed" aria-label="Playback speed">
+      <option value="0.1">0.1x</option><option value="0.25" selected>0.25x</option><option value="1">1x</option>
+    </select>
+    <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Replay position">
+    <span class="clock" id="clock"></span>
+  </div>
+
+  <div class="columns" id="columns"></div>
+
+  <div class="legend">
+    <span><i style="background:var(--accepted-wash)"></i>accepted draft token</span>
+    <span><i style="border-bottom:1px dotted var(--target)"></i>drawn from the target</span>
+    <span><i style="border-bottom:2px solid var(--rejected)"></i>drawn after a rejection</span>
+  </div>
+
+  <h2>Blocks over time</h2>
+  <p class="lede" style="font-size:13px;margin-top:2px">Each bar is one block. Width is its time, height is its draft length, and blue
+  is the accepted share. Select an adaptive block to see why that length was chosen.</p>
+  <div id="lanes"></div>
+  <div class="detail" id="detail">Select a block in the adaptive lane.</div>
+</main>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const $ = (id) => document.getElementById(id);
+let trace = DATA.traces[0];
+let now = 0;
+let playing = false;
+let lastFrame = 0;
+
+$("provenance").textContent = DATA.provenance;
+DATA.traces.forEach((item, index) => {
+  const option = new Option(item.label, index);
+  $("trace").add(option);
+});
+
+function duration() {
+  return Math.max(...trace.arms.map((arm) => arm.wall_s));
+}
+
+function buildColumns() {
+  const columns = $("columns");
+  columns.replaceChildren();
+  for (const arm of trace.arms) {
+    const box = document.createElement("section");
+    box.className = "arm";
+    const header = document.createElement("header");
+    const title = document.createElement("h2");
+    title.textContent = arm.label;
+    const stat = document.createElement("span");
+    stat.className = "stat";
+    header.append(title, stat);
+    const output = document.createElement("div");
+    output.className = "output";
+    box.append(header, output);
+    columns.append(box);
+    arm.statNode = stat;
+    arm.outputNode = output;
+    arm.spans = arm.tokens.map((token) => {
+      const span = document.createElement("span");
+      span.textContent = token.text;
+      span.className = token.source;
+      span.hidden = true;
+      output.append(span);
+      return span;
+    });
+  }
+}
+
+function buildLanes() {
+  const lanes = $("lanes");
+  lanes.replaceChildren();
+  const total = duration();
+  const tallest = Math.max(1, ...trace.arms.flatMap((arm) => arm.blocks.map((b) => b.drafted)));
+  for (const arm of trace.arms) {
+    if (!arm.blocks.length) continue;
+    const lane = document.createElement("div");
+    lane.className = "lane";
+    const title = document.createElement("div");
+    title.className = "lane-title";
+    title.textContent = arm.label;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 1000 56");
+    svg.setAttribute("preserveAspectRatio", "none");
+    arm.blocks.forEach((block, index) => {
+      const x = (block.start_s / total) * 1000;
+      const width = Math.max(1, ((block.end_s - block.start_s) / total) * 1000 - 0.6);
+      const full = 8 + (46 * block.drafted) / tallest;
+      const kept = block.drafted ? (full * block.accepted) / block.drafted : 0;
+      const add = (height, y, fill, opacity) => {
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", width);
+        rect.setAttribute("height", height);
+        rect.setAttribute("fill", fill);
+        rect.setAttribute("opacity", opacity);
+        rect.setAttribute("class", "block");
+        const hover = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        hover.textContent = `Block ${index + 1}: drafted ${block.drafted}, accepted ${block.accepted}`;
+        rect.append(hover);
+        rect.addEventListener("click", () => showBlock(arm, index));
+        svg.append(rect);
+      };
+      add(full, 56 - full, block.drafted ? "var(--rejected)" : "var(--target)", 0.8);
+      if (kept) add(kept, 56 - kept, "var(--accepted)", 1);
+    });
+    const head = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    head.setAttribute("class", "playhead");
+    head.setAttribute("y1", 0);
+    head.setAttribute("y2", 56);
+    head.setAttribute("vector-effect", "non-scaling-stroke");
+    svg.append(head);
+    arm.playhead = head;
+    lane.append(title, svg);
+    lanes.append(lane);
+  }
+}
+
+function expected(acceptance, k) {
+  let tokens = 0;
+  for (let i = 0; i <= k; i += 1) tokens += acceptance ** i;
+  return tokens;
+}
+
+function showBlock(arm, index) {
+  const detail = $("detail");
+  detail.replaceChildren();
+  const block = arm.blocks[index];
+  const decision = arm.decisions && arm.decisions[index];
+  const summary = document.createElement("p");
+  const rejected = block.rejected_at === null
+    ? "Nothing was rejected."
+    : `Draft token ${block.rejected_at + 1} (${JSON.stringify(block.rejected_text)}) was rejected and replaced by a draw from the residual.`;
+  summary.textContent = `Block ${index + 1} of ${arm.label}: drafted ${block.drafted}, accepted ${block.accepted}, delivered ${block.delivered} tokens in ${(1000 * (block.end_s - block.start_s)).toFixed(1)} ms. ${rejected}`;
+  detail.append(summary);
+  if (!decision) return;
+
+  const previous = index > 0 ? arm.decisions[index - 1] : null;
+  const reason = document.createElement("p");
+  const estimate = decision.acceptance.toFixed(2);
+  if (!previous) {
+    reason.textContent = `First block: acceptance starts at the prior of ${estimate}.`;
+  } else if (decision.chosen < previous.chosen) {
+    reason.textContent = `Shortened from ${previous.chosen} to ${decision.chosen}: estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}, so extra draft tokens no longer paid for themselves.`;
+  } else if (decision.chosen > previous.chosen) {
+    reason.textContent = `Lengthened from ${previous.chosen} to ${decision.chosen}: estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}.`;
+  } else {
+    reason.textContent = `Kept at ${decision.chosen}: estimated acceptance is ${estimate}.`;
+  }
+  detail.append(reason);
+
+  const rows = [];
+  const low = Math.max(0, decision.chosen - 3);
+  for (let k = low; k <= decision.chosen + 3 && k <= DATA.max_block_length; k += 1) {
+    const tokens = expected(decision.acceptance, k);
+    const seconds = k * decision.draft_pass_s + decision.verify_one_s + k * decision.verify_per_token_s;
+    rows.push([k, tokens, seconds, tokens / seconds]);
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap";
+  const table = document.createElement("table");
+  const head = table.insertRow();
+  for (const name of ["Draft length", "Expected tokens", "Expected ms", "Expected tokens/s"]) {
+    const cell = document.createElement("th");
+    cell.textContent = name;
+    head.append(cell);
+  }
+  for (const [k, tokens, seconds, rate] of rows) {
+    const row = table.insertRow();
+    if (k === decision.chosen) row.className = "picked";
+    for (const value of [k, tokens.toFixed(2), (1000 * seconds).toFixed(1), rate.toFixed(1)]) {
+      row.insertCell().textContent = value;
+    }
+  }
+  wrap.append(table);
+  detail.append(wrap);
+}
+
+function render() {
+  const total = duration();
+  for (const arm of trace.arms) {
+    let shown = 0;
+    arm.tokens.forEach((token, index) => {
+      const visible = token.t <= now;
+      if (visible) shown += 1;
+      arm.spans[index].hidden = !visible;
+    });
+    const elapsed = Math.min(now, arm.wall_s);
+    const finished = now >= arm.wall_s;
+    arm.statNode.textContent = finished
+      ? `${arm.tokens.length} tokens, ${arm.wall_s.toFixed(2)} s, ${(arm.tokens.length / arm.wall_s).toFixed(1)} tokens/s`
+      : `${shown} tokens, ${elapsed.toFixed(2)} s`;
+    if (playing) arm.outputNode.scrollTop = arm.outputNode.scrollHeight;
+    if (arm.playhead) {
+      const x = (now / total) * 1000;
+      arm.playhead.setAttribute("x1", x);
+      arm.playhead.setAttribute("x2", x);
+    }
+  }
+  $("clock").textContent = `${now.toFixed(2)} s of ${total.toFixed(2)} s recorded`;
+  $("scrub").value = Math.round((now / total) * 1000);
+}
+
+function frame(timestamp) {
+  if (!playing) return;
+  now += ((timestamp - lastFrame) / 1000) * Number($("speed").value);
+  lastFrame = timestamp;
+  if (now >= duration()) {
+    now = duration();
+    setPlaying(false);
+  }
+  render();
+  if (playing) requestAnimationFrame(frame);
+}
+
+function setPlaying(value) {
+  playing = value;
+  $("play").textContent = value ? "Pause" : "Play";
+  if (value) {
+    lastFrame = performance.now();
+    requestAnimationFrame(frame);
+  }
+}
+
+function load(index) {
+  trace = DATA.traces[index];
+  setPlaying(false);
+  now = 0;
+  buildColumns();
+  buildLanes();
+  $("detail").textContent = "Select a block in the adaptive lane.";
+  render();
+}
+
+$("play").addEventListener("click", () => {
+  if (!playing && now >= duration()) now = 0;
+  setPlaying(!playing);
+});
+$("scrub").addEventListener("input", (event) => {
+  setPlaying(false);
+  now = (Number(event.target.value) / 1000) * duration();
+  render();
+});
+$("trace").addEventListener("change", (event) => load(Number(event.target.value)));
+load(0);
+</script>
+</body>
+</html>
