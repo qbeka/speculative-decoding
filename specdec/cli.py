@@ -136,6 +136,14 @@ def run_report(args: argparse.Namespace) -> None:
     print(f"wrote {args.run / 'report'}")
 
 
+def run_demo(args: argparse.Namespace) -> None:
+    from specdec.demo import build_demo
+
+    arms = dict(item.split("=", 1) for item in args.arm)
+    build_demo(args.run, arms, args.out, args.max_block_length)
+    print(f"wrote {args.out}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="specdec", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -176,6 +184,15 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser = commands.add_parser("report", help="rebuild tables and plots from raw records")
     report_parser.add_argument("--run", type=Path, required=True)
     report_parser.set_defaults(handler=run_report)
+
+    demo_parser = commands.add_parser("demo", help="build the offline replay page from a run")
+    demo_parser.add_argument("--run", type=Path, required=True)
+    demo_parser.add_argument(
+        "--arm", action="append", required=True, help="recorded arm name=label shown to viewers"
+    )
+    demo_parser.add_argument("--out", type=Path, default=Path("site/index.html"))
+    demo_parser.add_argument("--max-block-length", type=int, default=16)
+    demo_parser.set_defaults(handler=run_demo)
 
     smoke_parser = commands.add_parser("smoke", help="check every layer quickly")
     smoke_parser.set_defaults(handler=run_smoke_command)

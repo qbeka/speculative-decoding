@@ -96,8 +96,28 @@ def block_variety(record: dict) -> int:
     return sum(first != second for first, second in zip(lengths, lengths[1:], strict=False))
 
 
+def trace_label(example: dict, workload: str) -> str:
+    """Name a recording the way a viewer would: by what kind of document it is."""
+    if workload.startswith("general"):
+        return f"General text: {example['prompt'][:52]}"
+    return f"{example['family'].replace('_', ' ').capitalize()} receipt, {example['id'][-4:]}"
+
+
+def page_text(run_dir: Path) -> dict:
+    """Read the recorded numbers shown on the page. A run without a report shows none."""
+    path = run_dir / "report" / "page.json"
+    text = json.loads(path.read_text()) if path.exists() else {}
+    fallback = "Recorded performance from a saved run. Nothing runs in your browser."
+    return {
+        "provenance": text.get("provenance", fallback),
+        "headline": text.get("headline", []),
+        "claims": text.get("claims", []),
+        "footer": text.get("footer", []),
+    }
+
+
 def build_demo(
-    run_dir: Path, arms: dict[str, str], out_path: Path, provenance: str, max_block_length: int
+    run_dir: Path, arms: dict[str, str], out_path: Path, max_block_length: int = 16
 ) -> None:
     """Write the replay. `arms` maps recorded arm names to the labels shown to viewers."""
     records = [r for r in load_records(run_dir / "raw.jsonl") if r["batch_size"] == 1]
@@ -105,7 +125,7 @@ def build_demo(
     adaptive_name = next(name for name in arms if name.startswith("adaptive"))
     traces = []
     for workload in sorted({record["workload"] for record in records}):
-        prompts = {row["id"]: row["prompt"] for row in read_jsonl(workload_path(workload))}
+        examples = {row["id"]: row for row in read_jsonl(workload_path(workload))}
         chosen = [r for r in records if r["workload"] == workload and r["arm"] == adaptive_name]
         chosen.sort(key=block_variety, reverse=True)
         for anchor in chosen[:MAX_TRACES_PER_WORKLOAD]:
@@ -118,17 +138,20 @@ def build_demo(
             }
             if not all(name in matching for name in arms):
                 continue
-            prompt = prompts[anchor["prompt_id"]]
+            example = examples[anchor["prompt_id"]]
             traces.append(
                 {
-                    "label": f"{anchor['prompt_id']}: {prompt[-60:]!r}",
+                    "label": trace_label(example, workload),
+                    "prompt": example["prompt"],
                     "arms": [
                         arm_view(tokenizer, matching[name], label, max_block_length)
                         for name, label in arms.items()
                     ],
                 }
             )
-    data = {"provenance": provenance, "max_block_length": max_block_length, "traces": traces}
+    if not traces:
+        raise ValueError(f"no prompt was recorded by every arm in {list(arms)}")
+    data = {**page_text(run_dir), "max_block_length": max_block_length, "traces": traces}
     template = resources.files("specdec").joinpath("demo_template.html").read_text()
     # Escaping < keeps a token containing </script> from ending the data block.
     payload = json.dumps(data).replace("<", "\\u003c")

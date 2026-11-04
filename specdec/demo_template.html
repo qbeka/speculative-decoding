@@ -3,176 +3,375 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Speculative Decoding Replay</title>
+<title>Speculative Decoding</title>
 <style>
+/* Tokens from kobamoney.com and qendrimbeka.com, so the page reads as one hand. */
 :root {
   color-scheme: light;
-  --surface: #fcfcfb;
-  --panel: #f4f3f0;
-  --line: #dddcd6;
-  --text: #0b0b0b;
-  --muted: #52514e;
-  --accepted: #2a78d6;
-  --accepted-wash: #dcebfb;
-  --rejected: #eb6834;
-  --target: #8b8a84;
-}
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --surface: #1a1a19;
-    --panel: #242422;
-    --line: #3a3a37;
-    --text: #f0efec;
-    --muted: #c3c2b7;
-    --accepted: #3987e5;
-    --accepted-wash: #1f3550;
-    --rejected: #d95926;
-    --target: #8b8a84;
-  }
+  --paper: #fbf8f4;
+  --card: #ffffff;
+  --ink: #111511;
+  --body: #444944;
+  --muted: #5a5e5a;
+  --quiet: #8d918e;
+  --forest: #1d3a2a;
+  --line: #11151117;
+  --line-strong: #1115112e;
+  --tile: #6040200e;
+  --accepted: #157a5a;
+  --accepted-wash: #157a5a1a;
+  --rejected: #c4562a;
+  --radius-card: 18px;
+  --radius-tile: 28px;
 }
 * { box-sizing: border-box; }
+html { background: var(--paper); -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  background: var(--surface);
-  color: var(--text);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/24px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
-main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
-h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
-h2 { font-size: 15px; margin: 0; }
-.lede { color: var(--muted); margin: 0 0 16px; max-width: 760px; }
-.notice {
-  border-left: 3px solid var(--target);
-  padding: 8px 12px;
-  background: var(--panel);
-  margin-bottom: 20px;
-  font-size: 13px;
-  color: var(--muted);
+::selection { background: #1d3a2a26; }
+:focus-visible { outline: 2px solid var(--forest); outline-offset: 3px; border-radius: 6px; }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong);
+  text-underline-offset: 4px; }
+a:hover { text-decoration-color: currentColor; }
+
+/* The signature: the recording's own acceptance trace, drawn as hairline ridges. */
+.ridge {
+  display: block;
+  width: 100vw;
+  height: 170px;
+  margin: 28px 0 0 calc(50% - 50vw);
+  pointer-events: none;
 }
-.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 16px; }
-select, button {
-  font: inherit;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 6px 10px;
-  max-width: 100%;
+.ridge path {
+  fill: none;
+  stroke: var(--forest);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 2.6s cubic-bezier(.45, 0, .2, 1) forwards;
 }
-button { cursor: pointer; min-width: 76px; }
-input[type=range] { flex: 1 1 200px; min-width: 0; }
-.clock { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
-.columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.arm { background: var(--panel); border-radius: 8px; padding: 12px; min-width: 0; }
-.arm header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.stat { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+.page { position: relative; max-width: 920px; margin: 0 auto; padding: 0 24px 96px; }
+.hero { padding: 104px 0 0; max-width: 620px; }
+.eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 18px; }
+h1 {
+  margin: 0;
+  font-size: clamp(2.25rem, 1.7rem + 3vw, 3.5rem);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.032em;
+}
+.lede { margin: 18px 0 0; font-size: clamp(1.0625rem, 1rem + .3vw, 1.1875rem); line-height: 1.5;
+  color: var(--body); max-width: 34rem; }
+.recorded { margin: 14px 0 0; font-size: 13px; color: var(--muted); max-width: 36rem; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 28px 0 0; }
+.stat { background: var(--tile); border-radius: var(--radius-card); padding: 14px 16px; }
+.stat b { display: block; font-size: 1.5rem; font-weight: 600; line-height: 1;
+  letter-spacing: -0.028em; font-variant-numeric: tabular-nums; }
+.stat span { display: block; margin-top: 7px; font-size: 13px; line-height: 18px; color: var(--muted); }
+
+section { margin-top: 88px; }
+h2 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 600; line-height: 1.15;
+  letter-spacing: -0.028em; }
+.note { margin: 0; font-size: 15px; line-height: 1.6; color: var(--body); max-width: 36rem; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 24px 0 18px; }
+.pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 44px; padding: 0 20px; border-radius: 999px;
+  font: inherit; font-size: 15px; font-weight: 600; letter-spacing: -0.012em;
+  border: 1px solid #ffffff26; background: #121412; color: #fff; cursor: pointer;
+  box-shadow: 0 1px 2px #0000002e; transition: background .15s;
+  min-width: 92px;
+}
+.pill:hover { background: #2a2d2a; }
+.field {
+  appearance: none; -webkit-appearance: none;
+  height: 44px; padding: 0 38px 0 16px; border-radius: 999px;
+  font: inherit; font-size: 15px; color: var(--ink);
+  border: 1px solid var(--line-strong); max-width: 100%; cursor: pointer;
+  background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235a5e5a'/%3E%3C/svg%3E") no-repeat right 16px center;
+}
+#trace { flex: 1 1 240px; min-width: 0; }
+.scrub-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.clock { flex: none; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+input[type=range] {
+  appearance: none; -webkit-appearance: none; flex: 1 1 auto; min-width: 0; height: 24px;
+  background: transparent; cursor: pointer; margin: 0;
+}
+input[type=range]::-webkit-slider-runnable-track { height: 1px; background: var(--line-strong); }
+input[type=range]::-moz-range-track { height: 1px; background: var(--line-strong); }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 11px; height: 11px; margin-top: -5px;
+  border-radius: 50%; background: var(--forest); border: 0;
+}
+input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%;
+  background: var(--forest); border: 0; }
+
+.columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.arm { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card);
+  padding: 16px; min-width: 0; }
+.arm h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
+.arm .rate { display: block; margin-top: 8px; font-size: 1.5rem; font-weight: 600; line-height: 1;
+  letter-spacing: -0.028em; font-variant-numeric: tabular-nums; }
+.arm .count { display: block; margin-top: 6px; font-size: 13px; color: var(--muted);
+  font-variant-numeric: tabular-nums; }
+.bar { height: 1px; background: var(--line-strong); margin: 12px 0; position: relative; }
+.bar i { position: absolute; left: 0; top: -.5px; height: 2px; background: var(--forest);
+  border-radius: 2px; width: 0; }
 .output {
-  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--body);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  height: 260px;
+  height: 244px;
   overflow-y: auto;
-  margin-top: 8px;
+  scrollbar-width: thin;
 }
-.output .draft { background: var(--accepted-wash); border-radius: 2px; }
-.output .target { border-bottom: 1px dotted var(--target); }
-.output .corrected { border-bottom: 2px solid var(--rejected); }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 12px 0 20px; }
-.legend i { display: inline-block; width: 22px; height: 12px; margin-right: 6px; vertical-align: -1px; border-radius: 2px; }
-.lane { margin-bottom: 12px; }
-.lane-title { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
-.lane svg { width: 100%; height: 56px; display: block; }
-.lane rect.block { cursor: pointer; }
-.lane rect.block:hover, .lane rect.block.chosen { stroke: var(--text); stroke-width: 1; }
-.playhead { stroke: var(--text); stroke-width: 1; }
-.detail { background: var(--panel); border-radius: 8px; padding: 14px; font-size: 14px; }
-.detail p { margin: 0 0 10px; max-width: 760px; }
-table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
-th, td { text-align: right; padding: 3px 12px 3px 0; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); font-weight: 500; }
-tr.picked td { font-weight: 650; }
-.table-wrap { overflow-x: auto; }
-@media (max-width: 820px) {
+.output .draft { background: var(--accepted-wash); color: var(--ink); border-radius: 2px; }
+.output .corrected { color: var(--ink); box-shadow: inset 0 -1.5px 0 var(--rejected); }
+.key { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 14px 0 0; padding: 0; list-style: none;
+  font-size: 13px; color: var(--muted); }
+.key i { display: inline-block; width: 18px; height: 11px; margin-right: 7px; vertical-align: -1px;
+  border-radius: 2px; }
+.key .k-draft { background: #157a5a33; }
+.key .k-target { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.key .k-corrected { box-shadow: inset 0 -1.5px 0 var(--rejected); border-radius: 0; }
+details.prompt { margin-top: 12px; font-size: 13px; color: var(--muted); }
+details.prompt summary { cursor: pointer; width: max-content; }
+details.prompt pre { font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap;
+  overflow-wrap: anywhere; margin: 10px 0 0; padding: 14px 16px; background: var(--tile);
+  border-radius: var(--radius-card); color: var(--body); max-height: 240px; overflow-y: auto; }
+
+.lane { margin-top: 26px; }
+.lane-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+  font-size: 13px; color: var(--muted); }
+.lane-head b { font-weight: 600; color: var(--ink); }
+.lane svg { display: block; width: 100%; height: 72px; margin-top: 6px; overflow: visible; }
+.lane line { vector-effect: non-scaling-stroke; }
+.stem-kept { stroke: var(--accepted); stroke-width: 1.5; }
+.stem-lost { stroke: var(--rejected); stroke-width: 1.5; }
+.stem-none { stroke: var(--quiet); stroke-width: 1; }
+.selected .stem-kept, .selected .stem-lost, .selected .stem-none { stroke: var(--ink); stroke-width: 2.5; }
+.baseline { stroke: var(--line-strong); stroke-width: 1; }
+.playhead { stroke: var(--forest); stroke-width: 1; }
+.hit { fill: transparent; cursor: pointer; }
+
+.why { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px;
+  margin-top: 26px; padding: 24px; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius-tile); }
+.why h3 { margin: 0 0 8px; font-size: 1.1875rem; font-weight: 600; letter-spacing: -0.012em; line-height: 1.3; }
+.why p { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--body); }
+.why svg { display: block; width: 100%; height: auto; overflow: visible; }
+.why svg text { font: 12px -apple-system, BlinkMacSystemFont, sans-serif; fill: var(--muted); }
+.why svg .value { fill: var(--ink); font-weight: 600; }
+.curve { fill: none; stroke: var(--forest); stroke-width: 1.5; }
+.grid-line { stroke: var(--line); stroke-width: 1; }
+.chosen-dot { fill: var(--accepted); stroke: var(--card); stroke-width: 2; }
+details.numbers { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+details.numbers summary { cursor: pointer; width: max-content; }
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--line); }
+th { font-weight: 400; color: var(--muted); }
+td { color: var(--body); }
+tr.picked td { color: var(--ink); font-weight: 600; }
+
+.claims { margin: 22px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.claims li { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; padding: 16px 0;
+  border-bottom: 1px solid var(--line); }
+.claims b { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
+.claims span { font-size: 15px; line-height: 1.6; color: var(--body); }
+footer { margin-top: 72px; font-size: 13px; line-height: 20px; color: var(--muted); max-width: 40rem; }
+footer p { margin: 0 0 6px; }
+
+@media (max-width: 760px) {
+  .ridge { height: 120px; }
+  h1 br { display: none; }
+  .hero { padding-top: 64px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .columns { grid-template-columns: minmax(0, 1fr); }
-  .output { height: 170px; }
+  .output { height: 150px; }
+  .why { grid-template-columns: minmax(0, 1fr); padding: 18px; gap: 18px; border-radius: var(--radius-card); }
+  .claims li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ridge path { animation: none; stroke-dashoffset: 0; }
 }
 </style>
 </head>
 <body>
-<main>
-  <h1>Speculative decoding replay</h1>
-  <p class="lede">Three decoders, one prompt, played back from recorded timestamps. Delivered tokens
-  are verified against the target model. Rejected draft tokens never reach the output.</p>
-  <div class="notice" id="provenance"></div>
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">Speculative decoding on one laptop</p>
+    <h1>A small model drafts.<br>The large model checks.</h1>
+    <p class="lede">The output has the same probabilities as the large model alone, and it arrives
+    faster when the draft is good. A controller picks how far to draft before each check.</p>
+    <p class="recorded" id="provenance"></p>
+  </header>
 
-  <div class="controls">
-    <select id="trace" aria-label="Recorded prompt"></select>
-    <button id="play">Play</button>
-    <select id="speed" aria-label="Playback speed">
-      <option value="0.1">0.1x</option><option value="0.25" selected>0.25x</option><option value="1">1x</option>
-    </select>
-    <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Replay position">
-    <span class="clock" id="clock"></span>
-  </div>
+  <svg class="ridge" id="ridge" viewBox="0 0 1000 170" preserveAspectRatio="none" aria-hidden="true"></svg>
 
-  <div class="columns" id="columns"></div>
+  <dl class="stats" id="stats"></dl>
 
-  <div class="legend">
-    <span><i style="background:var(--accepted-wash)"></i>accepted draft token</span>
-    <span><i style="border-bottom:1px dotted var(--target)"></i>drawn from the target</span>
-    <span><i style="border-bottom:2px solid var(--rejected)"></i>drawn after a rejection</span>
-  </div>
+  <main>
+    <section aria-labelledby="replay-title">
+      <h2 id="replay-title">One prompt, three decoders</h2>
+      <p class="note">This plays back real timestamps from the recorded run. Nothing runs in your
+      browser. Rejected drafts never reach the output.</p>
 
-  <h2>Blocks over time</h2>
-  <p class="lede" style="font-size:13px;margin-top:2px">Each bar is one block. Width is its time, height is its draft length, and blue
-  is the accepted share. Select an adaptive block to see why that length was chosen.</p>
-  <div id="lanes"></div>
-  <div class="detail" id="detail">Select a block in the adaptive lane.</div>
-</main>
+      <div class="controls">
+        <button class="pill" id="play" type="button">Play</button>
+        <select class="field" id="trace" aria-label="Recorded prompt"></select>
+        <select class="field" id="speed" aria-label="Playback speed">
+          <option value="0.25">Quarter speed</option>
+          <option value="1" selected>Real time</option>
+        </select>
+      </div>
+      <div class="scrub-row">
+        <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Replay position">
+        <span class="clock" id="clock"></span>
+      </div>
+
+      <div class="columns" id="columns"></div>
+
+      <ul class="key">
+        <li><i class="k-draft"></i>Drafted, then accepted</li>
+        <li><i class="k-target"></i>Sampled by the large model</li>
+        <li><i class="k-corrected"></i>Resampled after a rejection</li>
+      </ul>
+      <details class="prompt">
+        <summary>Show the prompt</summary>
+        <pre id="prompt"></pre>
+      </details>
+    </section>
+
+    <section aria-labelledby="blocks-title">
+      <h2 id="blocks-title">Each draft, and what survived</h2>
+      <p class="note">Every stem is one verification. Its height is the draft length. Green was
+      accepted and clay was thrown away. Select any stem on the adaptive line to see why that
+      length was chosen.</p>
+      <div id="lanes"></div>
+      <div class="why" id="why"></div>
+    </section>
+
+    <section aria-labelledby="evidence-title" id="evidence-section">
+      <h2 id="evidence-title">Why you can trust this</h2>
+      <ul class="claims" id="claims"></ul>
+    </section>
+  </main>
+
+  <footer id="footer"></footer>
+</div>
+
 <script id="data" type="application/json">__DATA__</script>
 <script>
 const DATA = JSON.parse(document.getElementById("data").textContent);
 const $ = (id) => document.getElementById(id);
+const SVG = "http://www.w3.org/2000/svg";
+const svg = (name, attributes = {}, parent = null) => {
+  const node = document.createElementNS(SVG, name);
+  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+  if (parent) parent.append(node);
+  return node;
+};
+const element = (name, text, parent = null) => {
+  const node = document.createElement(name);
+  if (text !== undefined) node.textContent = text;
+  if (parent) parent.append(node);
+  return node;
+};
+
 let trace = DATA.traces[0];
 let now = 0;
 let playing = false;
 let lastFrame = 0;
+let selected = null;
 
-$("provenance").textContent = DATA.provenance;
-DATA.traces.forEach((item, index) => {
-  const option = new Option(item.label, index);
-  $("trace").add(option);
-});
+function ms(seconds) { return `${(1000 * seconds).toFixed(1)} ms`; }
+function duration() { return Math.max(...trace.arms.map((arm) => arm.wall_s)); }
+function adaptiveArm() { return trace.arms.find((arm) => arm.decisions); }
+function expected(acceptance, k) {
+  let tokens = 0;
+  for (let i = 0; i <= k; i += 1) tokens += acceptance ** i;
+  return tokens;
+}
+function blockSeconds(decision, k) {
+  return k === 0 ? decision.verify_one_s
+    : k * decision.draft_pass_s + decision.verify_one_s + k * decision.verify_per_token_s;
+}
 
-function duration() {
-  return Math.max(...trace.arms.map((arm) => arm.wall_s));
+/* A smooth path through evenly spaced samples, in the ridge's 1000 by 170 box. */
+function smoothPath(samples, base, amplitude) {
+  const points = samples.map((value, index) => [
+    (index / Math.max(1, samples.length - 1)) * 1000,
+    base - value * amplitude,
+  ]);
+  let path = `M${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const [p0, p1, p2, p3] = [points[Math.max(0, i - 1)], points[i], points[i + 1],
+      points[Math.min(points.length - 1, i + 2)]];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    path += `C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+  }
+  return path;
+}
+
+/* The ridge is real data: this recording's draft lengths, softened by the
+   acceptance estimate. Each echo keeps less of the shape, like a line going still. */
+function drawRidge() {
+  const canvas = $("ridge");
+  canvas.replaceChildren();
+  const arm = adaptiveArm();
+  if (!arm) return;
+  const raw = arm.decisions.map((d) => d.chosen * (0.4 + d.acceptance));
+  const low = Math.min(...raw);
+  const span = Math.max(1e-6, Math.max(...raw) - low);
+  const samples = raw.map((value) => (value - low) / span);
+  const echoes = [[1, 0.5], [0.72, 0.34], [0.48, 0.22], [0.28, 0.14], [0.12, 0.09]];
+  echoes.forEach(([keep, opacity], index) => {
+    const path = svg("path", {
+      d: smoothPath(samples, 132 + index * 8, 118 * keep),
+      opacity,
+      pathLength: 1,
+    }, canvas);
+    path.style.animationDelay = `${index * 0.18}s`;
+  });
 }
 
 function buildColumns() {
   const columns = $("columns");
   columns.replaceChildren();
   for (const arm of trace.arms) {
-    const box = document.createElement("section");
+    const box = element("article", undefined, columns);
     box.className = "arm";
-    const header = document.createElement("header");
-    const title = document.createElement("h2");
-    title.textContent = arm.label;
-    const stat = document.createElement("span");
-    stat.className = "stat";
-    header.append(title, stat);
-    const output = document.createElement("div");
-    output.className = "output";
-    box.append(header, output);
-    columns.append(box);
-    arm.statNode = stat;
-    arm.outputNode = output;
+    element("h3", arm.label, box);
+    arm.rateNode = element("span", "", box);
+    arm.rateNode.className = "rate";
+    arm.countNode = element("span", "", box);
+    arm.countNode.className = "count";
+    const bar = element("div", undefined, box);
+    bar.className = "bar";
+    arm.barNode = element("i", undefined, bar);
+    arm.outputNode = element("div", undefined, box);
+    arm.outputNode.className = "output";
+    arm.outputNode.tabIndex = 0;
+    arm.outputNode.setAttribute("aria-label", `${arm.label} output`);
     arm.spans = arm.tokens.map((token) => {
-      const span = document.createElement("span");
-      span.textContent = token.text;
+      const span = element("span", token.text, arm.outputNode);
       span.className = token.source;
       span.hidden = true;
-      output.append(span);
       return span;
     });
   }
@@ -183,109 +382,141 @@ function buildLanes() {
   lanes.replaceChildren();
   const total = duration();
   const tallest = Math.max(1, ...trace.arms.flatMap((arm) => arm.blocks.map((b) => b.drafted)));
+  const height = 72;
   for (const arm of trace.arms) {
     if (!arm.blocks.length) continue;
-    const lane = document.createElement("div");
+    const lane = element("div", undefined, lanes);
     lane.className = "lane";
-    const title = document.createElement("div");
-    title.className = "lane-title";
-    title.textContent = arm.label;
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 1000 56");
-    svg.setAttribute("preserveAspectRatio", "none");
-    arm.blocks.forEach((block, index) => {
-      const x = (block.start_s / total) * 1000;
-      const width = Math.max(1, ((block.end_s - block.start_s) / total) * 1000 - 0.6);
-      const full = 8 + (46 * block.drafted) / tallest;
-      const kept = block.drafted ? (full * block.accepted) / block.drafted : 0;
-      const add = (height, y, fill, opacity) => {
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", x);
-        rect.setAttribute("y", y);
-        rect.setAttribute("width", width);
-        rect.setAttribute("height", height);
-        rect.setAttribute("fill", fill);
-        rect.setAttribute("opacity", opacity);
-        rect.setAttribute("class", "block");
-        const hover = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        hover.textContent = `Block ${index + 1}: drafted ${block.drafted}, accepted ${block.accepted}`;
-        rect.append(hover);
-        rect.addEventListener("click", () => showBlock(arm, index));
-        svg.append(rect);
-      };
-      add(full, 56 - full, block.drafted ? "var(--rejected)" : "var(--target)", 0.8);
-      if (kept) add(kept, 56 - kept, "var(--accepted)", 1);
+    const head = element("div", undefined, lane);
+    head.className = "lane-head";
+    element("b", arm.label, head);
+    const readout = element("span", `${arm.blocks.length} verifications`, head);
+    const canvas = svg("svg", { viewBox: `0 0 1000 ${height}`, preserveAspectRatio: "none",
+      role: "img", "aria-label": `${arm.label}: drafts over time` }, lane);
+    svg("line", { x1: 0, x2: 1000, y1: height - .5, y2: height - .5, class: "baseline" }, canvas);
+    arm.stems = arm.blocks.map((block, index) => {
+      const group = svg("g", {}, canvas);
+      const x = ((block.start_s + block.end_s) / 2 / total) * 1000;
+      const unit = (height - 6) / tallest;
+      const keptTop = height - 1 - unit * block.accepted;
+      const allTop = height - 1 - unit * block.drafted;
+      if (block.drafted === 0) {
+        svg("line", { x1: x, x2: x, y1: height - 1, y2: height - 7, class: "stem-none" }, group);
+      }
+      if (block.accepted) {
+        svg("line", { x1: x, x2: x, y1: height - 1, y2: keptTop, class: "stem-kept" }, group);
+      }
+      if (block.drafted > block.accepted) {
+        svg("line", { x1: x, x2: x, y1: keptTop, y2: allTop, class: "stem-lost" }, group);
+      }
+      const left = (block.start_s / total) * 1000;
+      const right = (block.end_s / total) * 1000;
+      const hit = svg("rect", { x: left, y: 0, width: Math.max(4, right - left), height, class: "hit" }, canvas);
+      hit.addEventListener("mouseenter", () => {
+        readout.textContent = `Block ${index + 1}: drafted ${block.drafted}, accepted ${block.accepted}, ${ms(block.end_s - block.start_s)}`;
+      });
+      hit.addEventListener("mouseleave", () => {
+        readout.textContent = `${arm.blocks.length} verifications`;
+      });
+      hit.addEventListener("click", () => showBlock(arm, index));
+      return group;
     });
-    const head = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    head.setAttribute("class", "playhead");
-    head.setAttribute("y1", 0);
-    head.setAttribute("y2", 56);
-    head.setAttribute("vector-effect", "non-scaling-stroke");
-    svg.append(head);
-    arm.playhead = head;
-    lane.append(title, svg);
-    lanes.append(lane);
+    arm.playhead = svg("line", { y1: 0, y2: height, class: "playhead" }, canvas);
   }
 }
 
-function expected(acceptance, k) {
-  let tokens = 0;
-  for (let i = 0; i <= k; i += 1) tokens += acceptance ** i;
-  return tokens;
+function reasonFor(decision, previous) {
+  const estimate = decision.acceptance.toFixed(2);
+  if (!previous) return `This is the first draft, so the estimate starts from its prior of ${estimate}.`;
+  if (decision.chosen < previous.chosen) {
+    return `Shortened from ${previous.chosen} to ${decision.chosen}. Estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}, so the extra draft tokens stopped paying for themselves.`;
+  }
+  if (decision.chosen > previous.chosen) {
+    return `Lengthened from ${previous.chosen} to ${decision.chosen}. Estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}, so a longer draft is worth its cost.`;
+  }
+  return `Kept at ${decision.chosen}. Estimated acceptance is ${estimate}, and no other length is expected to be faster.`;
+}
+
+function drawCurve(parent, decision) {
+  const width = 460;
+  const height = 190;
+  const left = 8;
+  const bottom = 26;
+  const top = 26;
+  const rates = [];
+  for (let k = 0; k <= DATA.max_block_length; k += 1) {
+    rates.push(expected(decision.acceptance, k) / blockSeconds(decision, k));
+  }
+  const peak = Math.max(...rates);
+  const x = (k) => left + (k / DATA.max_block_length) * (width - left * 2);
+  const y = (rate) => height - bottom - (rate / peak) * (height - bottom - top);
+  const canvas = svg("svg", { viewBox: `0 0 ${width} ${height}`, role: "img",
+    "aria-label": `Expected tokens per second for each draft length. The controller chose ${decision.chosen}.` }, parent);
+  svg("line", { x1: left, x2: width - left, y1: height - bottom, y2: height - bottom, class: "grid-line" }, canvas);
+  const points = rates.map((rate, k) => `${x(k).toFixed(1)},${y(rate).toFixed(1)}`).join(" ");
+  svg("polyline", { points, class: "curve" }, canvas);
+  const chosenRate = rates[decision.chosen];
+  svg("circle", { cx: x(decision.chosen), cy: y(chosenRate), r: 5, class: "chosen-dot" }, canvas);
+  const anchor = decision.chosen > DATA.max_block_length * 0.75 ? "end" : "middle";
+  const label = svg("text", { x: x(decision.chosen), y: y(chosenRate) - 12, "text-anchor": anchor, class: "value" }, canvas);
+  label.textContent = `length ${decision.chosen}, ${chosenRate.toFixed(0)} tokens/s`;
+  for (const k of [0, DATA.max_block_length]) {
+    const tick = svg("text", { x: x(k), y: height - 8, "text-anchor": k ? "end" : "start" }, canvas);
+    tick.textContent = k ? `draft length ${k}` : "0";
+  }
 }
 
 function showBlock(arm, index) {
-  const detail = $("detail");
-  detail.replaceChildren();
+  for (const candidate of trace.arms) {
+    if (candidate.stems) candidate.stems.forEach((stem) => stem.classList.remove("selected"));
+  }
+  arm.stems[index].classList.add("selected");
+  selected = { arm, index };
+
+  const why = $("why");
+  why.replaceChildren();
   const block = arm.blocks[index];
   const decision = arm.decisions && arm.decisions[index];
-  const summary = document.createElement("p");
+  const words = element("div", undefined, why);
+  element("h3", `Block ${index + 1} of ${arm.blocks.length}`, words);
   const rejected = block.rejected_at === null
-    ? "Nothing was rejected."
-    : `Draft token ${block.rejected_at + 1} (${JSON.stringify(block.rejected_text)}) was rejected and replaced by a draw from the residual.`;
-  summary.textContent = `Block ${index + 1} of ${arm.label}: drafted ${block.drafted}, accepted ${block.accepted}, delivered ${block.delivered} tokens in ${(1000 * (block.end_s - block.start_s)).toFixed(1)} ms. ${rejected}`;
-  detail.append(summary);
-  if (!decision) return;
-
-  const previous = index > 0 ? arm.decisions[index - 1] : null;
-  const reason = document.createElement("p");
-  const estimate = decision.acceptance.toFixed(2);
-  if (!previous) {
-    reason.textContent = `First block: acceptance starts at the prior of ${estimate}.`;
-  } else if (decision.chosen < previous.chosen) {
-    reason.textContent = `Shortened from ${previous.chosen} to ${decision.chosen}: estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}, so extra draft tokens no longer paid for themselves.`;
-  } else if (decision.chosen > previous.chosen) {
-    reason.textContent = `Lengthened from ${previous.chosen} to ${decision.chosen}: estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}.`;
-  } else {
-    reason.textContent = `Kept at ${decision.chosen}: estimated acceptance is ${estimate}.`;
+    ? "Every drafted token was accepted."
+    : `Drafted token ${block.rejected_at + 1} (${JSON.stringify(block.rejected_text)}) was rejected and resampled.`;
+  element("p", `Drafted ${block.drafted}, accepted ${block.accepted}, delivered ${block.delivered} in ${ms(block.end_s - block.start_s)}. ${rejected}`, words);
+  if (!decision) {
+    element("p", `${arm.label} always uses the same length, so there is no decision to explain.`, words);
+    return;
   }
-  detail.append(reason);
+  element("p", reasonFor(decision, index > 0 ? arm.decisions[index - 1] : null), words);
+  const picture = element("div", undefined, why);
+  drawCurve(picture, decision);
 
-  const rows = [];
-  const low = Math.max(0, decision.chosen - 3);
-  for (let k = low; k <= decision.chosen + 3 && k <= DATA.max_block_length; k += 1) {
-    const tokens = expected(decision.acceptance, k);
-    const seconds = k * decision.draft_pass_s + decision.verify_one_s + k * decision.verify_per_token_s;
-    rows.push([k, tokens, seconds, tokens / seconds]);
-  }
-  const wrap = document.createElement("div");
+  const details = element("details", undefined, why);
+  details.className = "numbers";
+  element("summary", "See the numbers", details);
+  const wrap = element("div", undefined, details);
   wrap.className = "table-wrap";
-  const table = document.createElement("table");
+  const table = element("table", undefined, wrap);
   const head = table.insertRow();
-  for (const name of ["Draft length", "Expected tokens", "Expected ms", "Expected tokens/s"]) {
-    const cell = document.createElement("th");
-    cell.textContent = name;
-    head.append(cell);
+  for (const name of ["Draft length", "Expected tokens", "Expected time", "Expected tokens/s"]) {
+    element("th", name, head);
   }
-  for (const [k, tokens, seconds, rate] of rows) {
+  const low = Math.max(0, decision.chosen - 3);
+  const high = Math.min(DATA.max_block_length, decision.chosen + 3);
+  for (let k = low; k <= high; k += 1) {
+    const tokens = expected(decision.acceptance, k);
+    const seconds = blockSeconds(decision, k);
     const row = table.insertRow();
     if (k === decision.chosen) row.className = "picked";
-    for (const value of [k, tokens.toFixed(2), (1000 * seconds).toFixed(1), rate.toFixed(1)]) {
+    for (const value of [k, tokens.toFixed(2), ms(seconds), (tokens / seconds).toFixed(1)]) {
       row.insertCell().textContent = value;
     }
   }
-  wrap.append(table);
-  detail.append(wrap);
+}
+
+function firstShortened(arm) {
+  const index = arm.decisions.findIndex((d, i) => i > 0 && d.chosen < arm.decisions[i - 1].chosen);
+  return Math.max(0, index);
 }
 
 function render() {
@@ -298,18 +529,18 @@ function render() {
       arm.spans[index].hidden = !visible;
     });
     const elapsed = Math.min(now, arm.wall_s);
-    const finished = now >= arm.wall_s;
-    arm.statNode.textContent = finished
-      ? `${arm.tokens.length} tokens, ${arm.wall_s.toFixed(2)} s, ${(arm.tokens.length / arm.wall_s).toFixed(1)} tokens/s`
-      : `${shown} tokens, ${elapsed.toFixed(2)} s`;
+    arm.rateNode.textContent = elapsed > 0.05 ? `${(shown / elapsed).toFixed(1)} tokens/s` : "0 tokens/s";
+    arm.countNode.textContent = `${shown} of ${arm.tokens.length} tokens, ${elapsed.toFixed(2)} s`;
+    arm.barNode.style.width = `${(100 * shown) / Math.max(1, arm.tokens.length)}%`;
     if (playing) arm.outputNode.scrollTop = arm.outputNode.scrollHeight;
     if (arm.playhead) {
       const x = (now / total) * 1000;
       arm.playhead.setAttribute("x1", x);
       arm.playhead.setAttribute("x2", x);
+      arm.playhead.style.opacity = now > 0 && now < total ? 1 : 0;
     }
   }
-  $("clock").textContent = `${now.toFixed(2)} s of ${total.toFixed(2)} s recorded`;
+  $("clock").textContent = `${now.toFixed(2)} of ${total.toFixed(2)} s`;
   $("scrub").value = Math.round((now / total) * 1000);
 }
 
@@ -337,11 +568,33 @@ function setPlaying(value) {
 function load(index) {
   trace = DATA.traces[index];
   setPlaying(false);
-  now = 0;
+  now = duration();
   buildColumns();
   buildLanes();
-  $("detail").textContent = "Select a block in the adaptive lane.";
+  drawRidge();
+  $("prompt").textContent = trace.prompt;
+  const arm = adaptiveArm();
+  showBlock(arm, firstShortened(arm));
   render();
+}
+
+function buildStatic() {
+  $("provenance").textContent = DATA.provenance;
+  for (const item of DATA.headline) {
+    const box = element("div", undefined, $("stats"));
+    box.className = "stat";
+    element("b", item.value, box);
+    element("span", item.label, box);
+  }
+  if (!DATA.headline.length) $("stats").remove();
+  for (const claim of DATA.claims) {
+    const row = element("li", undefined, $("claims"));
+    element("b", claim.title, row);
+    element("span", claim.text, row);
+  }
+  if (!DATA.claims.length) $("evidence-section").remove();
+  for (const line of DATA.footer) element("p", line, $("footer"));
+  DATA.traces.forEach((item, index) => $("trace").add(new Option(item.label, index)));
 }
 
 $("play").addEventListener("click", () => {
@@ -354,6 +607,7 @@ $("scrub").addEventListener("input", (event) => {
   render();
 });
 $("trace").addEventListener("change", (event) => load(Number(event.target.value)));
+buildStatic();
 load(0);
 </script>
 </body>
