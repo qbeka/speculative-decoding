@@ -147,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     generate_parser.add_argument("--seed", type=int, default=0)
     add_sampling_arguments(generate_parser)
     add_model_arguments(generate_parser)
-    generate_parser.set_defaults(run=run_generate)
+    generate_parser.set_defaults(handler=run_generate)
 
     arm_parser = commands.add_parser("arm", help="run one benchmark arm in this process")
     arm_parser.add_argument("--arm", required=True, help="the arm as a JSON object")
@@ -157,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     arm_parser.add_argument("--device", default=best_device())
     arm_parser.add_argument("--limit", type=int)
     arm_parser.add_argument("--cold", action="store_true")
-    arm_parser.set_defaults(run=run_one_arm)
+    arm_parser.set_defaults(handler=run_one_arm)
 
     validate_parser = commands.add_parser("validate", help="sweep settings on validation prompts")
     validate_parser.add_argument("--out", type=Path, required=True)
@@ -166,22 +166,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_parser.add_argument("--temperature", type=float, default=0.7)
     validate_parser.add_argument("--batch-size", type=int, action="append", default=None)
-    validate_parser.set_defaults(run=run_validate)
+    validate_parser.set_defaults(handler=run_validate)
 
     final_parser = commands.add_parser("final", help="run the frozen plan on test prompts")
     final_parser.add_argument("--frozen", type=Path, default=Path("config/frozen.json"))
     final_parser.add_argument("--out", type=Path, required=True)
-    final_parser.set_defaults(run=run_frozen)
+    final_parser.set_defaults(handler=run_frozen)
 
     report_parser = commands.add_parser("report", help="rebuild tables and plots from raw records")
     report_parser.add_argument("--run", type=Path, required=True)
-    report_parser.set_defaults(run=run_report)
+    report_parser.set_defaults(handler=run_report)
 
     smoke_parser = commands.add_parser("smoke", help="check every layer quickly")
-    smoke_parser.set_defaults(run=run_smoke_command)
+    smoke_parser.set_defaults(handler=run_smoke_command)
 
     data_parser = commands.add_parser("prepare-data", help="write every workload file")
-    data_parser.set_defaults(run=run_prepare_data)
+    data_parser.set_defaults(handler=run_prepare_data)
 
     teacher_parser = commands.add_parser("teacher", help="record teacher sequences")
     teacher_parser.add_argument("--out", type=Path, default=Path("artifacts/teacher/train.jsonl"))
@@ -193,7 +193,7 @@ def build_parser() -> argparse.ArgumentParser:
     teacher_parser.add_argument("--max-new-tokens", type=int, default=128)
     teacher_parser.add_argument("--batch-size", type=int, default=16)
     teacher_parser.add_argument("--seed", type=int, default=0)
-    teacher_parser.set_defaults(run=run_teacher)
+    teacher_parser.set_defaults(handler=run_teacher)
 
     distill_parser = commands.add_parser("distill", help="train a draft from teacher sequences")
     distill_parser.add_argument("--layers", type=int, required=True)
@@ -204,13 +204,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     distill_parser.add_argument("--out", type=Path, required=True)
     distill_parser.add_argument("--device", default=best_device())
-    distill_parser.set_defaults(run=run_distill)
+    distill_parser.set_defaults(handler=run_distill)
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    args.run(args)
+    args.handler(args)
 
 
 if __name__ == "__main__":
