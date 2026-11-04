@@ -133,9 +133,10 @@ def generate(
 
     started = perf_counter()
     tokens = list(prompt)
-    target.extend(tokens[:-1], rows=1) if len(tokens) > 1 else None
-    if draft is not None and len(tokens) > 1:
-        draft.extend(tokens[:-1], rows=1)
+    if len(tokens) > 1:
+        target.extend(tokens[:-1])
+        if draft is not None:
+            draft.extend(tokens[:-1])
     prefill_s = perf_counter() - started
 
     state = GenerationState(
@@ -218,7 +219,7 @@ def _verify(
     rng: Randomness,
 ) -> BlockOutcome:
     if config.greedy:
-        return verify_greedy(target_logits, draft_tokens)
+        return verify_greedy(target_logits, draft_tokens, config.eos_token_id)
     p_rows = to_probabilities(target_logits, config.sampling)
     if q_rows is None:
         q_rows = p_rows[:0]

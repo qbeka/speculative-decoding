@@ -152,7 +152,11 @@ def greedy_token(logits: torch.Tensor) -> int:
     return int(logits.argmax(dim=-1))
 
 
-def verify_greedy(target_logits: torch.Tensor, draft_tokens: list[int]) -> BlockOutcome:
+def verify_greedy(
+    target_logits: torch.Tensor,
+    draft_tokens: list[int],
+    eos_token_id: int | None = None,
+) -> BlockOutcome:
     """Greedy verification: keep draft tokens while they equal the target's argmax.
 
     This is a separate mode, not sampling with a small temperature. The result
@@ -163,6 +167,8 @@ def verify_greedy(target_logits: torch.Tensor, draft_tokens: list[int]) -> Block
         best = greedy_token(target_logits[i])
         if best != token:
             return BlockOutcome(accepted=i, next_token=best, rejected_at=i)
+        if token == eos_token_id:
+            return BlockOutcome(accepted=i + 1, next_token=None, rejected_at=None)
     return BlockOutcome(
         accepted=len(draft_tokens),
         next_token=greedy_token(target_logits[len(draft_tokens)]),
