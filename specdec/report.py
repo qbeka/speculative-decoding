@@ -19,22 +19,24 @@ from specdec.analysis import arm_summary, compare, load_records  # noqa: E402
 from specdec.data import read_jsonl, workload_path  # noqa: E402
 from specdec.models import TARGET, load_tokenizer  # noqa: E402
 
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
-MUTED = "#52514e"
-GRID = "#e4e3de"
+# The page's tokens. The four hues pass the colour-blind checks on this paper.
+SURFACE = "#fbf8f4"
+INK = "#111511"
+MUTED = "#5a5e5a"
+GRID = "#e9e6e1"
 KIND_COLORS = {
-    "target": "#8b8a84",
-    "fixed": "#2a78d6",
-    "adaptive": "#eb6834",
-    "assisted": "#1baf7a",
+    "target": "#8d918e",
+    "fixed": "#2f6fc4",
+    "adaptive": "#157a5a",
+    "assisted": "#e0702f",
 }
 PART_COLORS = {
-    "draft": "#2a78d6",
-    "verify": "#eb6834",
-    "sampling": "#1baf7a",
-    "prefill": "#eda100",
+    "draft": "#157a5a",
+    "verify": "#e0702f",
+    "sampling": "#2f6fc4",
+    "prefill": "#a98200",
 }
+matplotlib.rcParams["font.family"] = ["Helvetica Neue", "Arial", "sans-serif"]
 
 
 def style_axis(axis) -> None:
