@@ -129,6 +129,13 @@ def run_smoke_command(args: argparse.Namespace) -> None:
     run_smoke()
 
 
+def run_report(args: argparse.Namespace) -> None:
+    from specdec.report import build_report
+
+    build_report(args.run)
+    print(f"wrote {args.run / 'report'}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="specdec", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -165,6 +172,10 @@ def build_parser() -> argparse.ArgumentParser:
     final_parser.add_argument("--frozen", type=Path, default=Path("config/frozen.json"))
     final_parser.add_argument("--out", type=Path, required=True)
     final_parser.set_defaults(run=run_frozen)
+
+    report_parser = commands.add_parser("report", help="rebuild tables and plots from raw records")
+    report_parser.add_argument("--run", type=Path, required=True)
+    report_parser.set_defaults(run=run_report)
 
     smoke_parser = commands.add_parser("smoke", help="check every layer quickly")
     smoke_parser.set_defaults(run=run_smoke_command)
