@@ -58,7 +58,9 @@ def add_sampling_arguments(parser: argparse.ArgumentParser) -> None:
 
 def add_model_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--device", default=best_device())
-    parser.add_argument("--dtype", choices=DTYPES, default="float16")
+    parser.add_argument("--draft-device", default=None, help="defaults to --device")
+    # float32 is the default on purpose: see decision 2 in docs/DECISIONS.md.
+    parser.add_argument("--dtype", choices=DTYPES, default="float32")
     parser.add_argument("--draft", choices=DRAFTS, default="135m")
 
 
@@ -67,7 +69,9 @@ def run_generate(args: argparse.Namespace) -> None:
     check_compatible(tokenizer, load_tokenizer(DRAFTS[args.draft]))
     dtype = DTYPES[args.dtype]
     target = load_model(TARGET, args.device, dtype)
-    draft = load_model(DRAFTS[args.draft], args.device, dtype) if args.block_length > 0 else None
+    draft = None
+    if args.block_length > 0:
+        draft = load_model(DRAFTS[args.draft], args.draft_device or args.device, dtype)
 
     config = GenerationConfig(
         max_new_tokens=args.max_new_tokens,
