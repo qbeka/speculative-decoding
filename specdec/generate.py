@@ -48,6 +48,8 @@ class BlockRecord:
     context_length: int  # Committed tokens when the block started.
     target_feed: int  # Tokens fed to the target in its one pass.
     draft_feed: int  # Tokens fed to the draft across its passes.
+    draft_passes: int
+    overlaps: tuple[float, ...]  # Sum of min(p, q) at each verified position.
     proposal_s: float
     verification_s: float
     sampling_s: float
@@ -90,15 +92,16 @@ def propose(
     block_length: int,
     config: GenerationConfig,
     rng: Randomness,
-) -> tuple[list[int], torch.Tensor | None, int]:
+) -> tuple[list[int], torch.Tensor, int, int]:
     """Draw up to block_length tokens from the draft, one pass per token after the first.
 
-    Returns the draft tokens, their q rows and the number of tokens fed. In greedy
-    mode the rows are raw logits and are not used by verification.
+    Returns the draft tokens, their q rows, the tokens fed and the passes made. In
+    greedy mode the rows are raw logits and are not used by verification.
     """
     feed = tokens[draft.length :]
     logits = draft.extend(feed)
     fed = len(feed)
+    passes = 1
     drafted: list[int] = []
     rows: list[torch.Tensor] = []
     while True:
@@ -112,9 +115,10 @@ def propose(
         drafted.append(token)
         # A drafted EOS ends the block. Tokens after EOS would mean nothing.
         if len(drafted) == block_length or token == config.eos_token_id:
-            return drafted, torch.stack(rows), fed
+            return drafted, torch.stack(rows), fed, passes
         logits = draft.extend([token])
         fed += 1
+        passes += 1
 
 
 def generate(
@@ -152,9 +156,11 @@ def generate(
         tick = perf_counter()
         draft_tokens: list[int] = []
         q_rows = None
-        draft_feed = 0
+        draft_feed = draft_passes = 0
         if block_length > 0:
-            draft_tokens, q_rows, draft_feed = propose(draft, tokens, block_length, config, rng)
+            draft_tokens, q_rows, draft_feed, draft_passes = propose(
+                draft, tokens, block_length, config, rng
+            )
         proposal_s = perf_counter() - tick
 
         tick = perf_counter()
@@ -163,7 +169,7 @@ def generate(
         verification_s = perf_counter() - tick
 
         tick = perf_counter()
-        outcome = _verify(target_logits, q_rows, draft_tokens, config, rng)
+        outcome, overlaps = _verify(target_logits, q_rows, draft_tokens, config, rng)
         sampling_s = perf_counter() - tick
 
         delivered = draft_tokens[: outcome.accepted]
@@ -190,6 +196,8 @@ def generate(
                 context_length=context_length,
                 target_feed=len(feed),
                 draft_feed=draft_feed,
+                draft_passes=draft_passes,
+                overlaps=overlaps,
                 proposal_s=proposal_s,
                 verification_s=verification_s,
                 sampling_s=sampling_s,
@@ -217,10 +225,23 @@ def _verify(
     draft_tokens: list[int],
     config: GenerationConfig,
     rng: Randomness,
-) -> BlockOutcome:
+) -> tuple[BlockOutcome, tuple[float, ...]]:
+    """Verify one block and report the acceptance probability of each verified position.
+
+    The sum of min(p, q) is the exact acceptance probability at a position
+    (Leviathan et al., Corollary 3.6). It tells a controller much more than the
+    single accept or reject coin flip that came out of it. Greedy mode has no such
+    probability, so it reports 1 for a match and 0 for a mismatch.
+    """
     if config.greedy:
-        return verify_greedy(target_logits, draft_tokens, config.eos_token_id)
+        outcome = verify_greedy(target_logits, draft_tokens, config.eos_token_id)
+        overlaps = (1.0,) * outcome.accepted + (0.0,) * (outcome.rejected_at is not None)
+        return outcome, overlaps
+
     p_rows = to_probabilities(target_logits, config.sampling)
     if q_rows is None:
         q_rows = p_rows[:0]
-    return verify_block(p_rows, q_rows, draft_tokens, rng, config.eos_token_id)
+    outcome = verify_block(p_rows, q_rows, draft_tokens, rng, config.eos_token_id)
+    verified = outcome.accepted + (outcome.rejected_at is not None)
+    overlaps = torch.minimum(p_rows[:verified], q_rows[:verified]).sum(dim=-1).tolist()
+    return outcome, tuple(overlaps)
