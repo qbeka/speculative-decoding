@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Model weights and caches never go in git. They are rebuilt by commands.
+artifacts/
+*.safetensors
+
+# Machine files
+.DS_Store
+.env
+.env.*
