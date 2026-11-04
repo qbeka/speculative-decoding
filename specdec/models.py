@@ -15,7 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache, PreT
 @dataclass(frozen=True)
 class ModelSpec:
     repository: str
-    revision: str
+    revision: str | None
 
 
 # Same tokenizer and vocabulary, all Apache-2.0. `check_compatible` enforces this
@@ -37,6 +37,21 @@ def best_device() -> str:
 
 def load_tokenizer(spec: ModelSpec):
     return AutoTokenizer.from_pretrained(spec.repository, revision=spec.revision)
+
+
+def render_prompt(tokenizer, user_message: str) -> list[int]:
+    """Apply the one prompt format used everywhere in this project."""
+    text = tokenizer.apply_chat_template(
+        [{"role": "user", "content": user_message}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+    return tokenizer(text, add_special_tokens=False).input_ids
+
+
+def local_model(path: str) -> ModelSpec:
+    """Name a draft saved by `specdec distill`. Local weights have no revision."""
+    return ModelSpec(path, None)
 
 
 def load_model(spec: ModelSpec, device: str, dtype: torch.dtype) -> PreTrainedModel:

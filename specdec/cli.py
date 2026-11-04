@@ -1,9 +1,13 @@
 """Command line entry point. Run `uv run specdec --help`."""
 
 import argparse
+import json
+from pathlib import Path
 
 import torch
 
+from specdec.data import file_sha256, prepare_data
+from specdec.distill import TrainConfig, record_teacher_sequences, train_draft
 from specdec.generate import GenerationConfig, fixed_block_length, generate
 from specdec.models import (
     DRAFT_135M,
@@ -14,22 +18,13 @@ from specdec.models import (
     check_compatible,
     load_model,
     load_tokenizer,
+    render_prompt,
 )
 from specdec.randomness import TorchRandom
 from specdec.sampling import SamplingConfig
 
 DRAFTS = {"135m": DRAFT_135M, "360m": DRAFT_360M}
 DTYPES = {"float16": torch.float16, "float32": torch.float32, "float64": torch.float64}
-
-
-def render_prompt(tokenizer, user_message: str) -> list[int]:
-    """Apply the one prompt format used everywhere in this project."""
-    text = tokenizer.apply_chat_template(
-        [{"role": "user", "content": user_message}],
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-    return tokenizer(text, add_special_tokens=False).input_ids
 
 
 def summarize(generation) -> str:
@@ -92,6 +87,26 @@ def run_generate(args: argparse.Namespace) -> None:
     print(summarize(generation))
 
 
+def run_prepare_data(args: argparse.Namespace) -> None:
+    for path in prepare_data():
+        print(f"{path} {file_sha256(path)}")
+
+
+def run_teacher(args: argparse.Namespace) -> None:
+    cost = record_teacher_sequences(
+        args.out, args.device, args.temperature, args.max_new_tokens, args.batch_size, args.seed
+    )
+    args.cost_out.parent.mkdir(parents=True, exist_ok=True)
+    args.cost_out.write_text(json.dumps(cost, indent=2) + "\n")
+    print(cost)
+
+
+def run_distill(args: argparse.Namespace) -> None:
+    config = TrainConfig(layers=args.layers, steps=args.steps, temperature=args.temperature)
+    summary = train_draft(args.teacher, args.out, config, args.device)
+    print(summary["train_s"], summary["parameters"], summary["log"][-1])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="specdec", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -104,6 +119,32 @@ def build_parser() -> argparse.ArgumentParser:
     add_sampling_arguments(generate_parser)
     add_model_arguments(generate_parser)
     generate_parser.set_defaults(run=run_generate)
+
+    data_parser = commands.add_parser("prepare-data", help="write every workload file")
+    data_parser.set_defaults(run=run_prepare_data)
+
+    teacher_parser = commands.add_parser("teacher", help="record teacher sequences")
+    teacher_parser.add_argument("--out", type=Path, default=Path("artifacts/teacher/train.jsonl"))
+    teacher_parser.add_argument(
+        "--cost-out", type=Path, default=Path("runs/distill/teacher_cost.json")
+    )
+    teacher_parser.add_argument("--device", default=best_device())
+    teacher_parser.add_argument("--temperature", type=float, default=0.7)
+    teacher_parser.add_argument("--max-new-tokens", type=int, default=128)
+    teacher_parser.add_argument("--batch-size", type=int, default=16)
+    teacher_parser.add_argument("--seed", type=int, default=0)
+    teacher_parser.set_defaults(run=run_teacher)
+
+    distill_parser = commands.add_parser("distill", help="train a draft from teacher sequences")
+    distill_parser.add_argument("--layers", type=int, required=True)
+    distill_parser.add_argument("--steps", type=int, default=1500)
+    distill_parser.add_argument("--temperature", type=float, default=0.7)
+    distill_parser.add_argument(
+        "--teacher", type=Path, default=Path("artifacts/teacher/train.jsonl")
+    )
+    distill_parser.add_argument("--out", type=Path, required=True)
+    distill_parser.add_argument("--device", default=best_device())
+    distill_parser.set_defaults(run=run_distill)
     return parser
 
 

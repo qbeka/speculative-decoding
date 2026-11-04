@@ -15,8 +15,14 @@ from pathlib import Path
 
 import torch
 
-from specdec.cli import render_prompt
-from specdec.models import TARGET, ModelSession, best_device, load_model, load_tokenizer
+from specdec.models import (
+    TARGET,
+    ModelSession,
+    best_device,
+    load_model,
+    load_tokenizer,
+    render_prompt,
+)
 from specdec.sampling import SamplingConfig, to_probabilities
 
 DTYPES = {"float16": torch.float16, "float32": torch.float32}

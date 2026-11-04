@@ -1,0 +1,30 @@
+{"family": "general", "id": "general-000", "prompt": "Explain why the sky appears blue during the day and red at sunset.", "split": "validation"}
+{"family": "general", "id": "general-002", "prompt": "What are the main differences between a virus and a bacterium?", "split": "validation"}
+{"family": "general", "id": "general-004", "prompt": "Give three practical tips for learning a new language as an adult.", "split": "validation"}
+{"family": "general", "id": "general-006", "prompt": "Why do leaves change color in the fall?", "split": "validation"}
+{"family": "general", "id": "general-008", "prompt": "What causes the tides in the ocean?", "split": "validation"}
+{"family": "general", "id": "general-010", "prompt": "Explain the difference between weather and climate.", "split": "validation"}
+{"family": "general", "id": "general-012", "prompt": "Describe the role of mitochondria in a cell.", "split": "validation"}
+{"family": "general", "id": "general-014", "prompt": "What is the difference between a stack and a queue in computer science?", "split": "validation"}
+{"family": "general", "id": "general-016", "prompt": "Why is the sea salty?", "split": "validation"}
+{"family": "general", "id": "general-018", "prompt": "How do noise cancelling headphones work?", "split": "validation"}
+{"family": "general", "id": "general-020", "prompt": "Explain what inflation is and how central banks respond to it.", "split": "validation"}
+{"family": "general", "id": "general-022", "prompt": "What is the Pythagorean theorem and why is it useful?", "split": "validation"}
+{"family": "general", "id": "general-024", "prompt": "Explain how a rainbow forms.", "split": "validation"}
+{"family": "general", "id": "general-026", "prompt": "Describe how the internet routes a message from one computer to another.", "split": "validation"}
+{"family": "general", "id": "general-028", "prompt": "Write a friendly note welcoming a new neighbor to the street.", "split": "validation"}
+{"family": "general", "id": "general-030", "prompt": "What are the benefits and drawbacks of remote work?", "split": "validation"}
+{"family": "general", "id": "general-032", "prompt": "Describe the life cycle of a star like the Sun.", "split": "validation"}
+{"family": "general", "id": "general-034", "prompt": "Explain what an algorithm is, with an everyday example.", "split": "validation"}
+{"family": "general", "id": "general-036", "prompt": "What is the greenhouse effect?", "split": "validation"}
+{"family": "general", "id": "general-038", "prompt": "Give a brief overview of the printing press and its effect on Europe.", "split": "validation"}
+{"family": "general", "id": "general-040", "prompt": "Explain how a bicycle stays upright when it is moving.", "split": "validation"}
+{"family": "general", "id": "general-042", "prompt": "What are the main functions of the human liver?", "split": "validation"}
+{"family": "general", "id": "general-044", "prompt": "Explain the idea of supply and demand with an example.", "split": "validation"}
+{"family": "general", "id": "general-046", "prompt": "Describe how volcanoes form and why they erupt.", "split": "validation"}
+{"family": "general", "id": "general-048", "prompt": "Write three sentences encouraging someone who just failed an exam.", "split": "validation"}
+{"family": "general", "id": "general-050", "prompt": "Explain why the Moon always shows the same face to Earth.", "split": "validation"}
+{"family": "general", "id": "general-052", "prompt": "Describe how bread rises when it is baked.", "split": "validation"}
+{"family": "general", "id": "general-054", "prompt": "Explain how a solar panel produces electricity.", "split": "validation"}
+{"family": "general", "id": "general-056", "prompt": "Write a short description of a quiet village in the mountains.", "split": "validation"}
+{"family": "general", "id": "general-058", "prompt": "What is the difference between renewable and nonrenewable energy?", "split": "validation"}
