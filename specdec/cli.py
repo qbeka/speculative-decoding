@@ -24,6 +24,7 @@ from specdec.models import (
 )
 from specdec.randomness import TorchRandom
 from specdec.sampling import SamplingConfig
+from specdec.smoke import run_smoke
 
 DRAFTS = {"135m": DRAFT_135M, "360m": DRAFT_360M}
 DTYPES = {"float16": torch.float16, "float32": torch.float32, "float64": torch.float64}
@@ -124,6 +125,10 @@ def run_frozen(args: argparse.Namespace) -> None:
     run_final(args.frozen, args.out)
 
 
+def run_smoke_command(args: argparse.Namespace) -> None:
+    run_smoke()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="specdec", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -160,6 +165,9 @@ def build_parser() -> argparse.ArgumentParser:
     final_parser.add_argument("--frozen", type=Path, default=Path("config/frozen.json"))
     final_parser.add_argument("--out", type=Path, required=True)
     final_parser.set_defaults(run=run_frozen)
+
+    smoke_parser = commands.add_parser("smoke", help="check every layer quickly")
+    smoke_parser.set_defaults(run=run_smoke_command)
 
     data_parser = commands.add_parser("prepare-data", help="write every workload file")
     data_parser.set_defaults(run=run_prepare_data)
