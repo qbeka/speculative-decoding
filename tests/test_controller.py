@@ -31,6 +31,7 @@ def block(overlaps=(), delivered=1, verification_s=0.02, proposal_s=0.0, passes=
         accepted=len(overlaps),
         rejected_at=None,
         delivered=delivered,
+        draft_tokens=(),
         context_length=ctx,
         target_feed=feed,
         draft_feed=passes,

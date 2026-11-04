@@ -283,6 +283,7 @@ def generate_batch(
                         accepted=outcome.accepted,
                         rejected_at=outcome.rejected_at,
                         delivered=len(delivered),
+                        draft_tokens=tuple(drafted[slot]),
                         context_length=context_length,
                         target_feed=max(len(feed) for feed in feeds),
                         draft_feed=len(drafted[slot]),

@@ -151,6 +151,7 @@ class Decision:
     acceptance: float
     draft_pass_s: float
     verify_one_s: float
+    verify_per_token_s: float
     chosen: int
 
 
@@ -186,6 +187,7 @@ class AdaptiveController:
                 acceptance=acceptance,
                 draft_pass_s=self.latency.draft_pass_s,
                 verify_one_s=verify_s(1),
+                verify_per_token_s=verify_s(2) - verify_s(1),
                 chosen=chosen,
             )
         )

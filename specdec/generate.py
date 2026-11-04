@@ -45,6 +45,7 @@ class BlockRecord:
     accepted: int
     rejected_at: int | None
     delivered: int  # Tokens committed by this block.
+    draft_tokens: tuple[int, ...]  # Kept for traces. Rejected ones are never delivered.
     context_length: int  # Committed tokens when the block started.
     target_feed: int  # Tokens fed to the target in its one pass.
     draft_feed: int  # Tokens fed to the draft across its passes.
@@ -193,6 +194,7 @@ def generate(
                 accepted=outcome.accepted,
                 rejected_at=outcome.rejected_at,
                 delivered=len(delivered),
+                draft_tokens=tuple(draft_tokens),
                 context_length=context_length,
                 target_feed=len(feed),
                 draft_feed=draft_feed,
