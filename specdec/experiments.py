@@ -19,7 +19,7 @@ from specdec.analysis import fit_cost_prior, load_records, unit_rates
 from specdec.bench import Arm
 from specdec.manifest import build_manifest, write_manifest
 
-BLOCK_LENGTHS = [1, 2, 3, 4, 6, 8, 12]
+BLOCK_LENGTHS = [1, 2, 3, 4, 6, 8, 12, 16]
 VALIDATION_WORKLOADS = ["receipts_validation", "general_validation"]
 VALIDATION_LIMIT = 12
 VALIDATION_REPEATS = 1  # Selection only. The frozen test run carries the evidence.
@@ -166,14 +166,18 @@ def run_validation(out_dir: Path, drafts: list[dict], temperature: float, batch_
 
 
 def run_tagged(arm: Arm, tag: str, raw: Path) -> None:
-    """Run a controller setting and label its records with the setting."""
+    """Run a controller setting and label its records. A recorded setting is skipped."""
+    tagged = f"{arm.name}/{tag}"
+    if any(key[:2] == (tagged, arm.batch_size) for key in recorded_keys(raw)):
+        return
     scratch = raw.with_suffix(".tmp")
+    scratch.unlink(missing_ok=True)  # Left by an interrupted setting.
     for repeat in range(VALIDATION_REPEATS):
         for workload in VALIDATION_WORKLOADS:
             spawn_arm(arm, workload, repeat, scratch, VALIDATION_LIMIT)
     with raw.open("a") as file:
         for record in load_records(scratch):
-            record["arm"] = f"{record['arm']}/{tag}"
+            record["arm"] = tagged
             record["controller"] = arm.controller
             file.write(json.dumps(record) + "\n")
     scratch.unlink()
