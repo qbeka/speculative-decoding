@@ -32,3 +32,16 @@ because rounding changes. Measured over 360 positions on real weights
 A sampler that is exact for the distributions it receives cannot fix a target whose
 distribution depends on the block size. float16 was dropped as the default and the
 benchmark uses float32.
+
+## 3. The 30-layer draft trained for 750 steps, not 1500
+
+The first 30-layer run reached a 51 GB footprint on a 48 GB machine and spent hours
+swapping. The training loop only read a value from the GPU every 25 steps, so the CPU
+queued steps faster than the GPU finished them and each queued step kept its buffers
+alive. Waiting for the GPU after every step held the peak at 34 GB and brought a step
+to about 5 seconds.
+
+The restart used 750 steps because the draft starts from the 135M weights rather than
+a truncated network, and the failed run had already reached 0.988 overlap on training
+sequences at step 250. The 4- and 8-layer drafts keep 1500 steps, since they lose
+most of their network and start near 0.07.
