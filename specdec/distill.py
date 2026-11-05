@@ -174,6 +174,7 @@ def train_draft(teacher_path: Path, out_dir: Path, config: TrainConfig, device: 
     student.eval()
     out_dir.mkdir(parents=True, exist_ok=True)
     student.save_pretrained(out_dir)
+    tokenizer.save_pretrained(out_dir)  # The arm runner checks it against the target's.
     summary = {
         "config": asdict(config),
         "train_s": perf_counter() - started,
