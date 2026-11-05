@@ -1,0 +1,536 @@
+{
+  "temperature": 0.7,
+  "workloads": [
+    "receipts_test",
+    "general_test"
+  ],
+  "repeats": 3,
+  "order_seed": 20260314,
+  "test_families": "hotel, bookstore and parking",
+  "arms": [
+    {
+      "kind": "target",
+      "draft": null,
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "distilled-8",
+      "block_length": 12,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "distilled-30",
+      "block_length": 12,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "135m",
+      "block_length": 3,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "135m",
+      "block_length": 12,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "adaptive",
+      "draft": "distilled-8",
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {
+        "half_life_positions": 16.0,
+        "prior_acceptance": 0.8
+      },
+      "cost_prior": {
+        "draft_pass_s": 0.0034658749937079847,
+        "verify_base_s": 0.033334976894497624,
+        "verify_per_token_s": 0.0008738674689975684,
+        "verify_per_context_token_s": 4.188325440483111e-06
+      },
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "adaptive",
+      "draft": "distilled-30",
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {
+        "half_life_positions": 16.0,
+        "prior_acceptance": 0.6
+      },
+      "cost_prior": {
+        "draft_pass_s": 0.008639885902387807,
+        "verify_base_s": 0.03301968063036098,
+        "verify_per_token_s": 0.0009465990513830439,
+        "verify_per_context_token_s": 6.438641387388276e-06
+      },
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "adaptive",
+      "draft": "135m",
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {
+        "half_life_positions": 4.0,
+        "prior_acceptance": 0.8
+      },
+      "cost_prior": {
+        "draft_pass_s": 0.008643739747640211,
+        "verify_base_s": 0.03274203607860744,
+        "verify_per_token_s": 0.0009293023287080615,
+        "verify_per_context_token_s": 7.111070248226049e-06
+      },
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "assisted",
+      "draft": "distilled-8",
+      "block_length": 12,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "assisted",
+      "draft": "135m",
+      "block_length": 3,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "assisted",
+      "draft": "135m",
+      "block_length": 3,
+      "temperature": 0.7,
+      "batch_size": 1,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "heuristic"
+    },
+    {
+      "kind": "target",
+      "draft": null,
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 4,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "distilled-30",
+      "block_length": 12,
+      "temperature": 0.7,
+      "batch_size": 4,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "distilled-8",
+      "block_length": 8,
+      "temperature": 0.7,
+      "batch_size": 4,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "fixed",
+      "draft": "135m",
+      "block_length": 2,
+      "temperature": 0.7,
+      "batch_size": 4,
+      "draft_device": null,
+      "controller": {},
+      "cost_prior": {},
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "adaptive",
+      "draft": "distilled-8",
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 4,
+      "draft_device": null,
+      "controller": {
+        "half_life_positions": 8.0,
+        "prior_acceptance": 0.6
+      },
+      "cost_prior": {
+        "draft_pass_s": 0.006873982665031993,
+        "verify_base_s": 0.04175645231667938,
+        "verify_per_token_s": 0.0013626147950599667,
+        "verify_per_context_token_s": 1.3629447833057357e-05
+      },
+      "assisted_schedule": "constant"
+    },
+    {
+      "kind": "adaptive",
+      "draft": "135m",
+      "block_length": 0,
+      "temperature": 0.7,
+      "batch_size": 4,
+      "draft_device": null,
+      "controller": {
+        "half_life_positions": 4.0,
+        "prior_acceptance": 0.6
+      },
+      "cost_prior": {
+        "draft_pass_s": 0.014123194666656977,
+        "verify_base_s": 0.041569846500298824,
+        "verify_per_token_s": 0.0013432433983888775,
+        "verify_per_context_token_s": 1.4368646245597853e-05
+      },
+      "assisted_schedule": "constant"
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "fixed/distilled-8/k12",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-30/k12",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/135m/k3",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/135m/k12",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-30",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "assisted/distilled-8/k12/constant",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "assisted/135m/k3/constant",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "assisted/135m/k3/heuristic",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-30/k12",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "fixed/distilled-8/k8",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "fixed/135m/k2",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "target",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "fixed/distilled-8/k12",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-30",
+      "baseline": "fixed/distilled-30/k12",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "fixed/135m/k3",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "fixed/135m/k12",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "fixed/distilled-8/k8",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "fixed/distilled-30/k12",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "fixed/135m/k2",
+      "workload": "receipts_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "fixed/135m/k3",
+      "baseline": "assisted/135m/k3/constant",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-8/k12",
+      "baseline": "assisted/distilled-8/k12/constant",
+      "workload": "receipts_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-8/k12",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-30/k12",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/135m/k3",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/135m/k12",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-30",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "assisted/distilled-8/k12/constant",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "assisted/135m/k3/constant",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "assisted/135m/k3/heuristic",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-30/k12",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "fixed/distilled-8/k8",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "fixed/135m/k2",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "target",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "fixed/distilled-8/k12",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-30",
+      "baseline": "fixed/distilled-30/k12",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "fixed/135m/k3",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "fixed/135m/k12",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "fixed/distilled-8/k8",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/distilled-8",
+      "baseline": "fixed/distilled-30/k12",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "adaptive/135m",
+      "baseline": "fixed/135m/k2",
+      "workload": "general_test",
+      "batch_size": 4
+    },
+    {
+      "arm": "fixed/135m/k3",
+      "baseline": "assisted/135m/k3/constant",
+      "workload": "general_test",
+      "batch_size": 1
+    },
+    {
+      "arm": "fixed/distilled-8/k12",
+      "baseline": "assisted/distilled-8/k12/constant",
+      "workload": "general_test",
+      "batch_size": 1
+    }
+  ],
+  "decision": {
+    "adaptive": "adaptive/distilled-8",
+    "best_fixed": "fixed/distilled-8/k12",
+    "workload": "receipts_test",
+    "batch_size": 1,
+    "minimum_ratio": 1.0
+  }
+}
