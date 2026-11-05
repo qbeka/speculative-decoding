@@ -1,0 +1,59 @@
+{
+  "distilled-4": {
+    "config": {
+      "layers": 4,
+      "steps": 1500,
+      "batch_size": 12,
+      "learning_rate": 0.0003,
+      "temperature": 0.7,
+      "seed": 0
+    },
+    "train_s": 6023.347610291996,
+    "parameters": 42472512,
+    "device": "mps",
+    "final": {
+      "step": 1499,
+      "kl": 0.024124836549162865,
+      "acceptance": 0.9829536080360413
+    },
+    "note": "train_s includes machine suspensions; final metrics are on training sequences"
+  },
+  "distilled-8": {
+    "config": {
+      "layers": 8,
+      "steps": 1500,
+      "batch_size": 12,
+      "learning_rate": 0.0003,
+      "temperature": 0.7,
+      "seed": 0
+    },
+    "train_s": 38802.91922054201,
+    "parameters": 56632896,
+    "device": "mps",
+    "final": {
+      "step": 1499,
+      "kl": 0.006775842048227787,
+      "acceptance": 0.9931612014770508
+    },
+    "note": "train_s includes machine suspensions; final metrics are on training sequences"
+  },
+  "distilled-30": {
+    "config": {
+      "layers": 30,
+      "steps": 750,
+      "batch_size": 12,
+      "learning_rate": 0.0003,
+      "temperature": 0.7,
+      "seed": 0
+    },
+    "train_s": 3793.7287414589955,
+    "parameters": 134515008,
+    "device": "mps",
+    "final": {
+      "step": 749,
+      "kl": 0.007278080098330975,
+      "acceptance": 0.992472231388092
+    },
+    "note": "train_s includes machine suspensions; final metrics are on training sequences"
+  }
+}
