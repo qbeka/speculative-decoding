@@ -97,9 +97,17 @@ class TrainConfig:
     seed: int = 0
 
 
+WIDTH_BUCKET = 64
+
+
 def make_batch(rows: list[dict], pad_token: int, device: str):
-    """Right-pad sequences and mark which positions predict a generated token."""
-    width = max(len(row["tokens"]) for row in rows)
+    """Right-pad sequences and mark which positions predict a generated token.
+
+    Widths round up to WIDTH_BUCKET because MPS keeps a compiled graph for every
+    tensor shape it sees. Exact widths reached 51 GB on the 30-layer draft.
+    """
+    longest = max(len(row["tokens"]) for row in rows)
+    width = math.ceil(longest / WIDTH_BUCKET) * WIDTH_BUCKET
     input_ids = torch.full((len(rows), width), pad_token, dtype=torch.long)
     attention = torch.zeros((len(rows), width), dtype=torch.long)
     trained = torch.zeros((len(rows), width), dtype=torch.bool)
@@ -110,6 +118,11 @@ def make_batch(rows: list[dict], pad_token: int, device: str):
         # Logit i predicts token i + 1, so generated tokens map to these rows.
         trained[i, row["prompt_length"] - 1 : length - 1] = True
     return input_ids.to(device), attention.to(device), trained.to(device)
+
+
+def masked_mean(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Average the values at the True positions of a boolean mask."""
+    return (values * mask).sum() / mask.sum()
 
 
 def train_draft(teacher_path: Path, out_dir: Path, config: TrainConfig, device: str) -> dict:
@@ -131,11 +144,12 @@ def train_draft(teacher_path: Path, out_dir: Path, config: TrainConfig, device: 
         batch = rng.sample(rows, config.batch_size)
         input_ids, attention, trained = make_batch(batch, tokenizer.pad_token_id, device)
         with torch.no_grad():
-            p_logits = teacher(input_ids=input_ids, attention_mask=attention).logits[trained]
+            p_logits = teacher(input_ids=input_ids, attention_mask=attention).logits
             p = softmax(p_logits / config.temperature, dim=-1)
-        q_logits = student(input_ids=input_ids, attention_mask=attention).logits[trained]
+        q_logits = student(input_ids=input_ids, attention_mask=attention).logits
         log_q = log_softmax(q_logits / config.temperature, dim=-1)
-        loss = kl_div(log_q, p, reduction="batchmean")
+        # A mask, not logits[trained], keeps every tensor shape fixed within a bucket.
+        loss = masked_mean(kl_div(log_q, p, reduction="none").sum(dim=-1), trained)
 
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -144,13 +158,15 @@ def train_draft(teacher_path: Path, out_dir: Path, config: TrainConfig, device: 
         schedule.step()
 
         if step % 25 == 0 or step == config.steps - 1:
-            overlap = torch.minimum(p, log_q.exp()).sum(dim=-1).mean()
+            overlap = masked_mean(torch.minimum(p, log_q.exp()).sum(dim=-1), trained)
             log.append({"step": step, "kl": loss.item(), "acceptance": overlap.item()})
             print(
                 f"step {step} kl {loss.item():.4f} acceptance {overlap.item():.3f} "
                 f"{perf_counter() - started:.0f} s",
                 flush=True,
             )
+            if device == "mps":
+                torch.mps.empty_cache()
 
     student.eval()
     out_dir.mkdir(parents=True, exist_ok=True)
