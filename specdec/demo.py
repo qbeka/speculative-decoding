@@ -4,6 +4,7 @@ The page has no network requests and no live inference. Every number comes from
 raw records, and it says so at the top.
 """
 
+import base64
 import json
 from importlib import resources
 from pathlib import Path
@@ -152,7 +153,11 @@ def build_demo(
     if not traces:
         raise ValueError(f"no prompt was recorded by every arm in {list(arms)}")
     data = {**page_text(run_dir), "max_block_length": max_block_length, "traces": traces}
-    template = resources.files("specdec").joinpath("demo_template.html").read_text()
+    package = resources.files("specdec")
+    template = package.joinpath("demo_template.html").read_text()
+    # The one typeface is embedded, so the page makes no network requests.
+    font = package.joinpath("fonts/GeistSerif-Regular.woff2").read_bytes()
+    template = template.replace("/*FONT*/", base64.b64encode(font).decode())
     # Escaping < keeps a token containing </script> from ending the data block.
     payload = json.dumps(data).replace("<", "\\u003c")
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -4,11 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Speculative Decoding</title>
+<meta name="description" content="Faster local inference with the same output law, replayed from a recorded run.">
 <style>
-/* Tokens from kobamoney.com and qendrimbeka.com, so the page reads as one hand. */
+@font-face {
+  font-family: "Geist Serif";
+  src: url(data:font/woff2;base64,/*FONT*/) format("woff2");
+  font-display: swap;
+}
+/* Tokens from qendrimbeka.com, which took them from kobamoney.com. */
 :root {
   color-scheme: light;
-  --paper: #fbf8f4;
+  --paper: #ffffff;
   --card: #ffffff;
   --ink: #111511;
   --body: #444944;
@@ -20,7 +26,7 @@
   --tile: #6040200e;
   --accepted: #157a5a;
   --accepted-wash: #157a5a1a;
-  --rejected: #c4562a;
+  --rejected: #c4623a;
   --radius-card: 18px;
   --radius-tile: 28px;
 }
@@ -30,8 +36,8 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 400 16px/24px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 16px/24px "Geist Serif", Georgia, serif;
+  font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -60,14 +66,13 @@ a:hover { text-decoration-color: currentColor; }
 }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 
-.page { position: relative; max-width: 920px; margin: 0 auto; padding: 0 24px 96px; }
+.page { position: relative; max-width: 860px; margin: 0 auto; padding: 0 24px 96px; }
 .hero { padding: 104px 0 0; max-width: 620px; }
 .eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 18px; }
 h1 {
   margin: 0;
   font-size: clamp(2.25rem, 1.7rem + 3vw, 3.5rem);
-  font-weight: 400;
-  line-height: 1.02;
+  line-height: 1.04;
   letter-spacing: -0.032em;
 }
 .lede { margin: 18px 0 0; font-size: clamp(1.0625rem, 1rem + .3vw, 1.1875rem); line-height: 1.5;
@@ -75,13 +80,13 @@ h1 {
 .recorded { margin: 14px 0 0; font-size: 13px; color: var(--muted); max-width: 36rem; }
 
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 28px 0 0; }
-.stat { background: var(--tile); border-radius: var(--radius-card); padding: 14px 16px; }
-.stat b { display: block; font-size: 1.5rem; font-weight: 600; line-height: 1;
+.stat { background: #f7f6f3; border-radius: var(--radius-card); padding: 14px 16px; }
+.stat b { display: block; font-size: 1.5rem; line-height: 1;
   letter-spacing: -0.028em; font-variant-numeric: tabular-nums; }
 .stat span { display: block; margin-top: 7px; font-size: 13px; line-height: 18px; color: var(--muted); }
 
 section { margin-top: 88px; }
-h2 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 600; line-height: 1.15;
+h2 { margin: 0 0 6px; font-size: 1.5rem; line-height: 1.15;
   letter-spacing: -0.028em; }
 .note { margin: 0; font-size: 15px; line-height: 1.6; color: var(--body); max-width: 36rem; }
 
@@ -89,7 +94,7 @@ h2 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 600; line-height: 1.15;
 .pill {
   display: inline-flex; align-items: center; justify-content: center;
   height: 44px; padding: 0 20px; border-radius: 999px;
-  font: inherit; font-size: 15px; font-weight: 600; letter-spacing: -0.012em;
+  font: inherit; font-size: 15px; letter-spacing: -0.012em;
   border: 1px solid #ffffff26; background: #121412; color: #fff; cursor: pointer;
   box-shadow: 0 1px 2px #0000002e; transition: background .15s;
   min-width: 92px;
@@ -121,8 +126,8 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
 .columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .arm { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card);
   padding: 16px; min-width: 0; }
-.arm h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
-.arm .rate { display: block; margin-top: 8px; font-size: 1.5rem; font-weight: 600; line-height: 1;
+.arm h3 { margin: 0; font-size: 15px; letter-spacing: -0.012em; }
+.arm .rate { display: block; margin-top: 8px; font-size: 1.5rem; line-height: 1;
   letter-spacing: -0.028em; font-variant-numeric: tabular-nums; }
 .arm .count { display: block; margin-top: 6px; font-size: 13px; color: var(--muted);
   font-variant-numeric: tabular-nums; }
@@ -150,13 +155,13 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
 details.prompt { margin-top: 12px; font-size: 13px; color: var(--muted); }
 details.prompt summary { cursor: pointer; width: max-content; }
 details.prompt pre { font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap;
-  overflow-wrap: anywhere; margin: 10px 0 0; padding: 14px 16px; background: var(--tile);
+  overflow-wrap: anywhere; margin: 10px 0 0; padding: 14px 16px; background: #f7f6f3;
   border-radius: var(--radius-card); color: var(--body); max-height: 240px; overflow-y: auto; }
 
 .lane { margin-top: 26px; }
 .lane-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
   font-size: 13px; color: var(--muted); }
-.lane-head b { font-weight: 600; color: var(--ink); }
+.lane-head b { color: var(--ink); }
 .lane svg { display: block; width: 100%; height: 72px; margin-top: 6px; overflow: visible; }
 .lane line { vector-effect: non-scaling-stroke; }
 .stem-kept { stroke: var(--accepted); stroke-width: 1.5; }
@@ -170,11 +175,11 @@ details.prompt pre { font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospa
 .why { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px;
   margin-top: 26px; padding: 24px; background: var(--card); border: 1px solid var(--line);
   border-radius: var(--radius-tile); }
-.why h3 { margin: 0 0 8px; font-size: 1.1875rem; font-weight: 600; letter-spacing: -0.012em; line-height: 1.3; }
+.why h3 { margin: 0 0 8px; font-size: 1.1875rem; letter-spacing: -0.012em; line-height: 1.3; }
 .why p { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--body); }
 .why svg { display: block; width: 100%; height: auto; overflow: visible; }
-.why svg text { font: 12px -apple-system, BlinkMacSystemFont, sans-serif; fill: var(--muted); }
-.why svg .value { fill: var(--ink); font-weight: 600; }
+.why svg text { font-size: 12px; fill: var(--muted); }
+.why svg .value { fill: var(--ink); }
 .curve { fill: none; stroke: var(--forest); stroke-width: 1.5; }
 .grid-line { stroke: var(--line); stroke-width: 1; }
 .chosen-dot { fill: var(--accepted); stroke: var(--card); stroke-width: 2; }
@@ -183,14 +188,14 @@ details.numbers summary { cursor: pointer; width: max-content; }
 .table-wrap { overflow-x: auto; margin-top: 10px; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
 th, td { text-align: right; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--line); }
-th { font-weight: 400; color: var(--muted); }
+th { color: var(--muted); }
 td { color: var(--body); }
-tr.picked td { color: var(--ink); font-weight: 600; }
+tr.picked td { color: var(--ink); background: #f7f6f3; }
 
 .claims { margin: 22px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
 .claims li { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; padding: 16px 0;
   border-bottom: 1px solid var(--line); }
-.claims b { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
+.claims b { font-size: 15px; letter-spacing: -0.012em; }
 .claims span { font-size: 15px; line-height: 1.6; color: var(--body); }
 footer { margin-top: 72px; font-size: 13px; line-height: 20px; color: var(--muted); max-width: 40rem; }
 footer p { margin: 0 0 6px; }
