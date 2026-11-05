@@ -36,6 +36,7 @@ PART_COLORS = {
     "sampling": "#2f6fc4",
     "prefill": "#a98200",
 }
+LAW_AUDIT = Path("runs/law_audit/mps.json")
 matplotlib.rcParams["font.family"] = ["Helvetica Neue", "Arial", "sans-serif"]
 
 
@@ -211,6 +212,67 @@ def number(value, digits: int = 2) -> str:
     return "n/a" if value is None else f"{value:.{digits}f}"
 
 
+def find_comparison(comparisons: list, arm: str, baseline: str, workload: str, batch: int):
+    for item in comparisons:
+        key = (item.arm, item.baseline, item.workload, item.batch_size)
+        if key == (arm, baseline, workload, batch):
+            return item
+    raise KeyError(f"{arm} against {baseline} on {workload} at batch size {batch} was not frozen")
+
+
+def law_audit_range(path: Path = LAW_AUDIT) -> tuple[int, float, float]:
+    """Return draws per arm and the p-value range of the two samplers on real weights."""
+    audit = json.loads(path.read_text())
+    values = [row["p_value"] for row in audit["rows"] if row["check"] in ("fixed_k2", "adaptive")]
+    return audit["draws_per_arm"], min(values), max(values)
+
+
+def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, item, supported: bool):
+    """Write the numbers and sentences of the replay page. No number is typed by hand."""
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    rule = frozen["decision"]
+    workload, batch, adaptive = rule["workload"], rule["batch_size"], rule["adaptive"]
+    speedup = find_comparison(comparisons, adaptive, "target", workload, batch)
+    stats = summary[(workload, batch, adaptive)]
+    draws, low_p, high_p = law_audit_range()
+    chip = manifest["hardware"]["chip"]
+    memory_gb = int(manifest["hardware"]["memory_bytes"]) / 2**30
+    outcome = "supported" if supported else "not supported"
+    return {
+        "provenance": f"Recorded on an {chip} with {memory_gb:.0f} GB of memory. "
+        "This page replays saved timings. Nothing runs in your browser.",
+        "headline": [
+            {"value": f"{speedup.ratio:.2f}x", "label": "speed against the large model alone"},
+            {"value": f"{item.ratio:.2f}x", "label": "speed against the best fixed length"},
+            {"value": f"{stats['acceptance']:.2f}", "label": "of drafted tokens accepted"},
+            {"value": f"{stats['tokens_per_pass']:.1f}", "label": "tokens per large model pass"},
+        ],
+        "claims": [
+            {
+                "title": "The output follows the large model",
+                "text": "The sampler is checked by enumerating every path on small cases, and "
+                f"by {draws} draws per arm on real weights. Its p-values ran from {low_p:.2f} "
+                f"to {high_p:.2f}, and a deliberately wrong sampler failed the same test.",
+            },
+            {
+                "title": "The test prompts stayed unseen",
+                "text": f"These {frozen['test_families']} receipt families were held out of "
+                "training and tuning, and every setting was frozen before they ran.",
+            },
+            {
+                "title": "The rule was set in advance",
+                "text": f"The adaptive claim needed a 95 percent interval above "
+                f"{rule['minimum_ratio']:.2f} against the best fixed length. It came in at "
+                f"{item.low:.3f} to {item.high:.3f}, so the claim is {outcome}.",
+            },
+        ],
+        "footer": [
+            f"Commit {manifest['commit'][:7]}.",
+            f"{speedup.units} prompts, {speedup.repeats} repeats, batch size {batch}.",
+        ],
+    }
+
+
 def build_report(run_dir: Path) -> None:
     records = load_records(run_dir / "raw.jsonl")
     frozen = json.loads((run_dir / "manifest.json").read_text())["config"]
@@ -334,6 +396,12 @@ def build_report(run_dir: Path) -> None:
     (out_dir / "decision.json").write_text(
         json.dumps(
             {"rule": primary, "result": asdict(decision_item), "supported": supported}, indent=2
+        )
+        + "\n"
+    )
+    (out_dir / "page.json").write_text(
+        json.dumps(
+            page_text(run_dir, frozen, comparisons, summary, decision_item, supported), indent=2
         )
         + "\n"
     )
