@@ -9,6 +9,7 @@ time, which includes prefill. Comparisons use the log of the ratio between two
 arms on the same unit and repeat, so a slow prompt does not dominate the mean.
 """
 
+import gzip
 import json
 import math
 import random
@@ -24,7 +25,12 @@ BOOTSTRAP_SEED = 20260314
 
 
 def load_records(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text().splitlines()]
+    """Read raw records. Git keeps only the compressed copy, `raw.jsonl.gz`."""
+    if path.exists():
+        text = path.read_text()
+    else:
+        text = gzip.decompress(path.with_name(path.name + ".gz").read_bytes()).decode()
+    return [json.loads(line) for line in text.splitlines()]
 
 
 def percentile(values: list[float], fraction: float) -> float:

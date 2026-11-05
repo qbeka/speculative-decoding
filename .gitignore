@@ -13,3 +13,8 @@ artifacts/
 .DS_Store
 .env
 .env.*
+
+# Raw records are kept compressed, as raw.jsonl.gz.
+runs/**/raw.jsonl
+runs/**/cold.jsonl
+runs/**/*.tmp

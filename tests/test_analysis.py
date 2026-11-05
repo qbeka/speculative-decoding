@@ -1,5 +1,6 @@
 """The statistics must report what the records say."""
 
+import gzip
 import math
 
 import pytest
@@ -10,6 +11,7 @@ from specdec.analysis import (
     bootstrap_ratio,
     compare,
     fit_cost_prior,
+    load_records,
     percentile,
     unit_rates,
 )
@@ -125,3 +127,9 @@ def test_score_output_checks_each_field():
     assert not fields["currency"]
     assert not fields["item_count"]
     assert score_output("no json here", truth)["parsed"] is False
+
+
+def test_load_records_falls_back_to_the_compressed_copy(tmp_path):
+    raw = tmp_path / "raw.jsonl"
+    (tmp_path / "raw.jsonl.gz").write_bytes(gzip.compress(b'{"arm": "target"}\n'))
+    assert load_records(raw) == [{"arm": "target"}]

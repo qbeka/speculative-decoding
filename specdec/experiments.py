@@ -5,6 +5,7 @@ runs the frozen plan on test prompts with the arm order shuffled in each repeat,
 slow drift on the machine does not always fall on the same arm.
 """
 
+import gzip
 import json
 import math
 import random
@@ -183,6 +184,12 @@ def run_tagged(arm: Arm, tag: str, raw: Path) -> None:
     scratch.unlink()
 
 
+def compress_raw(raw: Path) -> None:
+    """Write the copy Git keeps. mtime=0 makes the bytes depend only on the records."""
+    compressed = gzip.compress(raw.read_bytes(), mtime=0)
+    raw.with_name(raw.name + ".gz").write_bytes(compressed)
+
+
 def run_final(frozen_path: Path, out_dir: Path) -> None:
     """Run the frozen plan once and write raw records plus a manifest."""
     frozen = json.loads(frozen_path.read_text())
@@ -205,6 +212,8 @@ def run_final(frozen_path: Path, out_dir: Path) -> None:
                 spawn_arm(arm, workload, repeat, raw)
     manifest = build_manifest(frozen, sys.argv, perf_counter() - started, raw)
     write_manifest(out_dir / "manifest.json", manifest)
+    compress_raw(raw)
+    compress_raw(out_dir / "cold.jsonl")
 
 
 def fixed_rate_table(records: list[dict]) -> dict:
