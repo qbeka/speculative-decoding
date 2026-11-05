@@ -20,7 +20,7 @@ from specdec.data import read_jsonl, workload_path  # noqa: E402
 from specdec.models import TARGET, load_tokenizer  # noqa: E402
 
 # The page's tokens. The four hues pass the colour-blind checks on this paper.
-SURFACE = "#fbf8f4"
+SURFACE = "#ffffff"
 INK = "#111511"
 MUTED = "#5a5e5a"
 GRID = "#e9e6e1"
@@ -315,8 +315,8 @@ def build_report(run_dir: Path) -> None:
             f"the lower bound exceeds {primary['minimum_ratio']}. "
             f"Result: {'supported' if supported else 'not supported'}.",
             "## Machine load",
-            f"{machine_load(records)} Other work shared this machine. Arms ran in a shuffled "
-            "order on every repeat, so load falls on all of them, but it adds noise.",
+            f"{machine_load(records)} Arms ran in a shuffled order on every repeat, so any "
+            "other work on the machine falls on all of them, but it adds noise.",
             "## Paired comparisons",
             "One unit is one prompt at batch size 1, or one static batch above that.",
             markdown_table(comparison_headers, comparison_rows),
