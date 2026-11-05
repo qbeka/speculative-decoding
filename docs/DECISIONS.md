@@ -56,3 +56,11 @@ both models on one device also avoids a transfer on every token, so no CPU arm r
 
 This gives c of about 0.26 for 135M and 0.09 for the 8-layer draft, below the 0.5 that
 decision 1 measured at float16, because float32 slows the target more than the draft.
+
+## 5. Validation uses one repeat
+
+The sweep started with two repeats and was projected at about four hours. Validation
+only selects a fixed length and controller settings, and it compares arms on the same
+prompts, so one repeat is enough to rank them. The test run carries the evidence and
+keeps its own repeats. The few records from the abandoned second repeat were removed
+so every arm has the same denominator.

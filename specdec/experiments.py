@@ -22,7 +22,7 @@ from specdec.manifest import build_manifest, write_manifest
 BLOCK_LENGTHS = [1, 2, 3, 4, 6, 8, 12]
 VALIDATION_WORKLOADS = ["receipts_validation", "general_validation"]
 VALIDATION_LIMIT = 12
-VALIDATION_REPEATS = 2
+VALIDATION_REPEATS = 1  # Selection only. The frozen test run carries the evidence.
 CONTROLLER_GRID = [
     {"half_life_positions": half_life, "prior_acceptance": prior}
     for half_life in (4.0, 8.0, 16.0)
