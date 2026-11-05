@@ -104,7 +104,7 @@ def make_batch(rows: list[dict], pad_token: int, device: str):
     """Right-pad sequences and mark which positions predict a generated token.
 
     Widths round up to WIDTH_BUCKET because MPS keeps a compiled graph for every
-    tensor shape it sees. Exact widths reached 51 GB on the 30-layer draft.
+    tensor shape it sees.
     """
     longest = max(len(row["tokens"]) for row in rows)
     width = math.ceil(longest / WIDTH_BUCKET) * WIDTH_BUCKET
@@ -156,6 +156,11 @@ def train_draft(teacher_path: Path, out_dir: Path, config: TrainConfig, device: 
         torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
         optimizer.step()
         schedule.step()
+        if device == "mps":
+            # Without this the CPU queues steps faster than the GPU finishes them, and
+            # the buffers of every queued step stay alive. The 30-layer draft hit 51 GB.
+            torch.mps.synchronize()
+            torch.mps.empty_cache()
 
         if step % 25 == 0 or step == config.steps - 1:
             overlap = masked_mean(torch.minimum(p, log_q.exp()).sum(dim=-1), trained)
@@ -165,8 +170,6 @@ def train_draft(teacher_path: Path, out_dir: Path, config: TrainConfig, device: 
                 f"{perf_counter() - started:.0f} s",
                 flush=True,
             )
-            if device == "mps":
-                torch.mps.empty_cache()
 
     student.eval()
     out_dir.mkdir(parents=True, exist_ok=True)
