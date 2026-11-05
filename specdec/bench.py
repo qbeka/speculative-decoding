@@ -8,6 +8,7 @@ output: `new_tokens` comes from the committed sequence only.
 """
 
 import json
+import os
 import resource
 import sys
 from dataclasses import asdict, dataclass, field
@@ -226,8 +227,15 @@ class ArmRunner:
 
 
 def memory_snapshot(device: str) -> dict:
-    """Return peak process memory. macOS reports ru_maxrss in bytes."""
-    snapshot = {"peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}
+    """Return peak process memory and machine load. macOS reports ru_maxrss in bytes.
+
+    The one minute load average is kept with every record, so a report can show how
+    much other work shared the machine during a pass.
+    """
+    snapshot = {
+        "peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+        "load_1m": os.getloadavg()[0],
+    }
     if device == "mps":
         snapshot["mps_driver_bytes"] = torch.mps.driver_allocated_memory()
     return snapshot

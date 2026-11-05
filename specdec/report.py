@@ -92,6 +92,15 @@ def task_accuracy(records: list[dict]) -> dict:
     }
 
 
+def machine_load(records: list[dict]) -> str:
+    """Describe the one minute load average seen at the end of each pass."""
+    loads = sorted(record["load_1m"] for record in records if "load_1m" in record)
+    if not loads:
+        return "Load was not recorded."
+    middle = loads[len(loads) // 2]
+    return f"One minute load average: median {middle:.1f}, range {loads[0]:.1f} to {loads[-1]:.1f}."
+
+
 def time_shares(records: list[dict]) -> dict:
     """Return mean seconds per delivered token by part, for arms with block records."""
     parts: dict[tuple, dict[str, float]] = defaultdict(lambda: defaultdict(float))
@@ -305,6 +314,9 @@ def build_report(run_dir: Path) -> None:
             f"interval {decision_item.low:.3f} to {decision_item.high:.3f}. Rule: supported if "
             f"the lower bound exceeds {primary['minimum_ratio']}. "
             f"Result: {'supported' if supported else 'not supported'}.",
+            "## Machine load",
+            f"{machine_load(records)} Other work shared this machine. Arms ran in a shuffled "
+            "order on every repeat, so load falls on all of them, but it adds noise.",
             "## Paired comparisons",
             "One unit is one prompt at batch size 1, or one static batch above that.",
             markdown_table(comparison_headers, comparison_rows),
