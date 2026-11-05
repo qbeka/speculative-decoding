@@ -45,3 +45,14 @@ The restart used 750 steps because the draft starts from the 135M weights rather
 a truncated network, and the failed run had already reached 0.988 overlap on training
 sequences at step 250. The 4- and 8-layer drafts keep 1500 steps, since they lose
 most of their network and start near 0.07.
+
+## 4. Draft placement stays on Metal
+
+At float32 a one-token draft pass costs the same on Metal and on the CPU: about 8 ms
+for 135M, 2.8 ms for the 8-layer draft and 2.1 ms for the 4-layer draft, against 31 ms
+for the target. Larger feeds, used to catch up after a rejection, cost more on the
+CPU. See `runs/profile/mps_float32.json` and `runs/profile/cpu_float32.json`. Keeping
+both models on one device also avoids a transfer on every token, so no CPU arm runs.
+
+This gives c of about 0.26 for 135M and 0.09 for the 8-layer draft, below the 0.5 that
+decision 1 measured at float16, because float32 slows the target more than the draft.
