@@ -12,10 +12,10 @@ from time import perf_counter
 
 import torch
 
-from specdec.models import DRAFT_135M, DRAFT_360M, TARGET, ModelSession, best_device, load_model
+from specdec.bench import draft_spec
+from specdec.models import TARGET, ModelSession, best_device, load_model
 from specdec.sampling import SamplingConfig, to_probabilities
 
-MODELS = {"target": TARGET, "draft_135m": DRAFT_135M, "draft_360m": DRAFT_360M}
 DTYPES = {"float16": torch.float16, "float32": torch.float32}
 CONTEXTS = [32, 128, 512]
 FEEDS = [1, 2, 3, 5, 9, 17]
@@ -64,10 +64,14 @@ def main() -> None:
     parser.add_argument("--device", default=best_device())
     parser.add_argument("--dtype", choices=DTYPES, default="float16")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--draft", action="append", default=[], help="135m, 360m or a trained name")
+    parser.add_argument("--no-target", action="store_true", help="profile only the drafts")
     args = parser.parse_args()
+    models = {} if args.no_target else {"target": TARGET}
+    models.update({name: draft_spec(name) for name in args.draft})
 
     rows = []
-    for name, spec in MODELS.items():
+    for name, spec in models.items():
         model = load_model(spec, args.device, DTYPES[args.dtype])
         for context in CONTEXTS:
             session = ModelSession(model)

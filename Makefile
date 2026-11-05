@@ -15,3 +15,7 @@ smoke:
 
 data:
 	uv run specdec prepare-data
+
+site:
+	uv run specdec report --run $(RUN)
+	uv run specdec demo --run $(RUN) --out site/index.html $(ARMS)
