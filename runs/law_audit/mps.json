@@ -1,0 +1,56 @@
+{
+  "draws_per_arm": 1500,
+  "new_tokens": 3,
+  "draft": "135m",
+  "elapsed_s": 31769.648086083005,
+  "rows": [
+    {
+      "prompt": "receipt",
+      "check": "fixed_k2",
+      "p_value": 0.15011438727378845,
+      "bins": 8
+    },
+    {
+      "prompt": "receipt",
+      "check": "adaptive",
+      "p_value": 0.6081511974334717,
+      "bins": 10
+    },
+    {
+      "prompt": "receipt",
+      "check": "negative_control_draft_only",
+      "p_value": 0.0,
+      "bins": 15
+    },
+    {
+      "prompt": "receipt",
+      "check": "repeat_of_target",
+      "p_value": 0.10884897410869598,
+      "bins": 11
+    },
+    {
+      "prompt": "general",
+      "check": "fixed_k2",
+      "p_value": 0.08370869606733322,
+      "bins": 48
+    },
+    {
+      "prompt": "general",
+      "check": "adaptive",
+      "p_value": 0.5943779945373535,
+      "bins": 49
+    },
+    {
+      "prompt": "general",
+      "check": "negative_control_draft_only",
+      "p_value": 0.0,
+      "bins": 42
+    },
+    {
+      "prompt": "general",
+      "check": "repeat_of_target",
+      "p_value": 0.41382908821105957,
+      "bins": 43
+    }
+  ]
+}
