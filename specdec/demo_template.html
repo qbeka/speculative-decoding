@@ -209,6 +209,68 @@
   .tokens { gap: 24px 4px; }
 }
 
+/* Below this the stage stacks: draft and transport first, the text after the lanes. */
+@media (max-width: 899px) {
+  :root { --stage-height: auto; --side: minmax(0, 1fr); }
+  .stage { grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: none; }
+  .work { display: contents; }
+  .bar, .draft-block, .lanes, .compare { grid-column: 1 / -1; }
+  .transport { grid-column: 1 / 9; }
+  .speed { grid-column: 9 / -1; }
+  .input { grid-column: 1 / 7; }
+  .output { grid-column: 7 / -1; }
+  .bar { order: 1; }
+  .draft-block { order: 2; padding: 14px var(--pad) 0; }
+  .transport { order: 3; }
+  .speed { order: 3; justify-content: flex-end; }
+  .lanes { order: 5; }
+  .compare { order: 6; }
+  .input, .output { order: 7; height: 224px; border-top: 1px solid var(--line); }
+  .output { border-left: 1px solid var(--line); }
+  .input { border-right: 0; }
+}
+@media (max-width: 559px) {
+  :root { --pad: 12px; --name-column: 124px; --read-column: 142px; }
+  .title { margin-bottom: 12px; }
+  .title h1 { font-size: 29px; line-height: 34px; }
+  .title p { font-size: 16px; }
+  .bar { flex-wrap: wrap; row-gap: 6px; }
+  .bar .divider { display: none; }
+  .switch { order: 1; }
+  .mode { order: 2; padding-left: 8px; }
+  .picker { order: 3; flex: 1 1 100%; }
+  .transport { order: 2; grid-column: 1 / -1; }
+  .draft-block { order: 3; }
+  .lanes { order: 4; }
+  .speed { order: 5; grid-column: 1 / -1; padding-left: var(--pad); }
+  .speed > span { margin-right: auto; }
+  .compare { order: 6; }
+  .draft-head h2 { font-size: 21px; line-height: 26px; }
+  .draft-head p { font-size: 12px; }
+  .tokens { gap: 23px 3px; }
+  .token-room { min-height: 0; padding: 8px 0 22px; align-items: flex-start; }
+  .token { height: 30px; padding: 0 6px; font-size: 13px; line-height: 28px; }
+  .note { min-height: 100px; font-size: 14px; line-height: 20px; }
+  .draft-head p { min-height: 36px; line-height: 18px; }
+  .ledger { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 6px; }
+  .ledger div:last-child { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 8px; padding: 0; }
+  .ledger div:last-child dd { display: contents; }
+  .ledger small { grid-column: 1 / -1; white-space: nowrap; }
+  .transport .primary { flex: 1 1 74px; }
+  .step .full { display: none; }
+  .step .brief { display: inline; }
+  .step, .transport .reset { flex: 1 1 auto; }
+  .read, .read-head { grid-template-columns: 46px 1fr 48px; font-size: 12px; }
+  .lanes { column-gap: 8px; grid-template-columns: var(--name-column) var(--read-column); grid-template-rows: 22px repeat(3, var(--lane)) 16px 84px; padding-bottom: 10px; }
+  .lanes .read, .lanes .read-head { grid-column: 2; }
+  .axis { grid-column: 1 / -1; grid-row: 5; }
+  #scrub { grid-column: 1 / -1; grid-row: 6; }
+  .compare { flex-direction: column; align-items: flex-start; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .input, .output { grid-column: 1 / -1; height: 208px; }
+  .mode .wide, .read-head .wide { display: none; }
+  .output { border-left: 0; }
+}
 </style>
 </head>
 <body>
@@ -314,6 +376,7 @@ const REDUCED_STEP_S = 0.9;
 const STRIP = 100;
 
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
+const stacked = matchMedia('(max-width: 899px)');
 const state = { caseIndex: 0, traceIndex: 0, armIndex: 2, t: 0, speed: SPEEDS[0][0], playing: false };
 let trace = null;
 let total = 1;
@@ -424,6 +487,42 @@ function placeWritten(row) {
   chip.classList.remove('flip');
   const overflows = label.getBoundingClientRect().right > row.getBoundingClientRect().right;
   chip.classList.toggle('flip', overflows);
+}
+
+/* Tokens are monospaced, so their wrapping can be worked out without drawing every draft.
+   Stacked layouts reserve the tallest draft, so nothing below moves during a replay. */
+function reserveTokenRows() {
+  const row = $('tokens');
+  row.style.minHeight = '';
+  if (!stacked.matches) return;
+  const sample = document.createElement('li');
+  sample.className = 'token';
+  sample.textContent = 'x';
+  sample.style.visibility = 'hidden';
+  row.append(sample);
+  const style = getComputedStyle(sample);
+  const inset = parseFloat(style.paddingLeft) * 2 + 2;
+  const glyph = parseFloat(style.fontSize) * 0.61;
+  const height = sample.getBoundingClientRect().height;
+  sample.remove();
+  const gaps = getComputedStyle(row);
+  const [rowGap, columnGap] = [parseFloat(gaps.rowGap), parseFloat(gaps.columnGap)];
+  const width = row.clientWidth;
+  const rowsOf = (block) => {
+    const texts = block.rejected_at === null ? [...block.draft, block.written] : block.draft;
+    let rows = 1;
+    let used = 0;
+    for (const text of texts) {
+      const size = [...show(text)].length * glyph + inset;
+      if (used && used + columnGap + size > width) {
+        rows += 1;
+        used = size;
+      } else used += (used ? columnGap : 0) + size;
+    }
+    return rows;
+  };
+  const rows = Math.max(...selectedArm().blocks.map(rowsOf));
+  row.style.minHeight = `${rows * height + (rows - 1) * rowGap}px`;
 }
 
 function drawPass(arm, index, checked) {
@@ -715,6 +814,7 @@ function loadTrace() {
   $('source').scrollTop = 0;
   drawn.draft = null;
   drawn.draftBlock = null;
+  reserveTokenRows();
   drawOutput();
   drawLanes();
   drawReads();
@@ -741,6 +841,7 @@ function selectArm(index) {
   }
   drawn.draft = null;
   drawn.draftBlock = null;
+  reserveTokenRows();
   drawOutput();
   paint();
   announce(`Following ${selectedArm().label}. ${describeDraft()}`);
@@ -865,6 +966,26 @@ selectCase(0);
 selectArm(state.armIndex);
 announce('');
 
+/* Stacked, the text panes sit last, so keyboard focus should reach them last too. */
+function orderPanes() {
+  const [input, output, status] = [$('input'), $('output').parentElement, $('status')];
+  if (stacked.matches) status.before(input, output);
+  else {
+    document.querySelector('.work').prepend(input);
+    document.querySelector('.work').append(output);
+  }
+}
+stacked.addEventListener('change', orderPanes);
+orderPanes();
+
+let lastWidth = 0;
+new ResizeObserver(() => {
+  const width = $('tokens').clientWidth;
+  if (width === lastWidth) return;
+  lastWidth = width;
+  reserveTokenRows();
+  placeWritten($('tokens'));
+}).observe($('tokens'));
 </script>
 </body>
 </html>
