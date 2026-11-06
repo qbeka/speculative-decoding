@@ -3,7 +3,7 @@
   "commit": "0070a9a53aa71e619392a6e2b7fde18278d13233",
   "uncommitted_changes": false,
   "command": [
-    "/Users/qendrimbeka/Coding_Projects/speculative-decoding/.venv/bin/specdec",
+    ".venv/bin/specdec",
     "final",
     "--out",
     "runs/final/v2"
