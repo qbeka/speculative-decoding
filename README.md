@@ -11,7 +11,7 @@ text stopped looking like what the system was tuned for, it lost far less than t
 length did. A short fixed length on the stock draft avoided that loss too, so the controller
 is protection against a badly chosen length, not a speedup.
 
-[Open the replay](site/index.html) to watch three decoders work the same recorded prompt.
+[Open the replay](https://www.qendrimbeka.com/projects/speculative-decoding/index.html) to watch three decoders work the same recorded prompt. It is also in `site/index.html`, one file with no network requests.
 
 | | |
 |---|---|
