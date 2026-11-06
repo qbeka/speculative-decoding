@@ -1,0 +1,579 @@
+{
+  "created_at": "2026-11-06T07:14:44.126834+00:00",
+  "commit": "0070a9a53aa71e619392a6e2b7fde18278d13233",
+  "uncommitted_changes": false,
+  "command": [
+    "/Users/qendrimbeka/Coding_Projects/speculative-decoding/.venv/bin/specdec",
+    "final",
+    "--out",
+    "runs/final/v2"
+  ],
+  "elapsed_s": 10129.234384750016,
+  "config": {
+    "temperature": 0.7,
+    "workloads": [
+      "receipts_test",
+      "general_test"
+    ],
+    "repeats": 3,
+    "order_seed": 20260314,
+    "test_families": "hotel, bookstore and parking",
+    "arms": [
+      {
+        "kind": "target",
+        "draft": null,
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "distilled-8",
+        "block_length": 12,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "distilled-30",
+        "block_length": 12,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "135m",
+        "block_length": 3,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "135m",
+        "block_length": 12,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "adaptive",
+        "draft": "distilled-8",
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {
+          "half_life_positions": 16.0,
+          "prior_acceptance": 0.8
+        },
+        "cost_prior": {
+          "draft_pass_s": 0.0034658749937079847,
+          "verify_base_s": 0.033334976894497624,
+          "verify_per_token_s": 0.0008738674689975684,
+          "verify_per_context_token_s": 4.188325440483111e-06
+        },
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "adaptive",
+        "draft": "distilled-30",
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {
+          "half_life_positions": 16.0,
+          "prior_acceptance": 0.6
+        },
+        "cost_prior": {
+          "draft_pass_s": 0.008639885902387807,
+          "verify_base_s": 0.03301968063036098,
+          "verify_per_token_s": 0.0009465990513830439,
+          "verify_per_context_token_s": 6.438641387388276e-06
+        },
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "adaptive",
+        "draft": "135m",
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {
+          "half_life_positions": 4.0,
+          "prior_acceptance": 0.8
+        },
+        "cost_prior": {
+          "draft_pass_s": 0.008643739747640211,
+          "verify_base_s": 0.03274203607860744,
+          "verify_per_token_s": 0.0009293023287080615,
+          "verify_per_context_token_s": 7.111070248226049e-06
+        },
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "assisted",
+        "draft": "distilled-8",
+        "block_length": 12,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "assisted",
+        "draft": "135m",
+        "block_length": 3,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "assisted",
+        "draft": "135m",
+        "block_length": 3,
+        "temperature": 0.7,
+        "batch_size": 1,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "heuristic"
+      },
+      {
+        "kind": "target",
+        "draft": null,
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 4,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "distilled-30",
+        "block_length": 12,
+        "temperature": 0.7,
+        "batch_size": 4,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "distilled-8",
+        "block_length": 8,
+        "temperature": 0.7,
+        "batch_size": 4,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "fixed",
+        "draft": "135m",
+        "block_length": 2,
+        "temperature": 0.7,
+        "batch_size": 4,
+        "draft_device": null,
+        "controller": {},
+        "cost_prior": {},
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "adaptive",
+        "draft": "distilled-8",
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 4,
+        "draft_device": null,
+        "controller": {
+          "half_life_positions": 8.0,
+          "prior_acceptance": 0.6
+        },
+        "cost_prior": {
+          "draft_pass_s": 0.006873982665031993,
+          "verify_base_s": 0.04175645231667938,
+          "verify_per_token_s": 0.0013626147950599667,
+          "verify_per_context_token_s": 1.3629447833057357e-05
+        },
+        "assisted_schedule": "constant"
+      },
+      {
+        "kind": "adaptive",
+        "draft": "135m",
+        "block_length": 0,
+        "temperature": 0.7,
+        "batch_size": 4,
+        "draft_device": null,
+        "controller": {
+          "half_life_positions": 4.0,
+          "prior_acceptance": 0.6
+        },
+        "cost_prior": {
+          "draft_pass_s": 0.014123194666656977,
+          "verify_base_s": 0.041569846500298824,
+          "verify_per_token_s": 0.0013432433983888775,
+          "verify_per_context_token_s": 1.4368646245597853e-05
+        },
+        "assisted_schedule": "constant"
+      }
+    ],
+    "comparisons": [
+      {
+        "arm": "fixed/distilled-8/k12",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-30/k12",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/135m/k3",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/135m/k12",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-30",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "assisted/distilled-8/k12/constant",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "assisted/135m/k3/constant",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "assisted/135m/k3/heuristic",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-30/k12",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "fixed/distilled-8/k8",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "fixed/135m/k2",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "target",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "fixed/distilled-8/k12",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-30",
+        "baseline": "fixed/distilled-30/k12",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "fixed/135m/k3",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "fixed/135m/k12",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "fixed/distilled-8/k8",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "fixed/distilled-30/k12",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "fixed/135m/k2",
+        "workload": "receipts_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "fixed/135m/k3",
+        "baseline": "assisted/135m/k3/constant",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-8/k12",
+        "baseline": "assisted/distilled-8/k12/constant",
+        "workload": "receipts_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-8/k12",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-30/k12",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/135m/k3",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/135m/k12",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-30",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "assisted/distilled-8/k12/constant",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "assisted/135m/k3/constant",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "assisted/135m/k3/heuristic",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-30/k12",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "fixed/distilled-8/k8",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "fixed/135m/k2",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "target",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "fixed/distilled-8/k12",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-30",
+        "baseline": "fixed/distilled-30/k12",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "fixed/135m/k3",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "fixed/135m/k12",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "fixed/distilled-8/k8",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/distilled-8",
+        "baseline": "fixed/distilled-30/k12",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "adaptive/135m",
+        "baseline": "fixed/135m/k2",
+        "workload": "general_test",
+        "batch_size": 4
+      },
+      {
+        "arm": "fixed/135m/k3",
+        "baseline": "assisted/135m/k3/constant",
+        "workload": "general_test",
+        "batch_size": 1
+      },
+      {
+        "arm": "fixed/distilled-8/k12",
+        "baseline": "assisted/distilled-8/k12/constant",
+        "workload": "general_test",
+        "batch_size": 1
+      }
+    ],
+    "decision": {
+      "adaptive": "adaptive/distilled-8",
+      "best_fixed": "fixed/distilled-8/k12",
+      "workload": "receipts_test",
+      "batch_size": 1,
+      "minimum_ratio": 1.0
+    }
+  },
+  "hardware": {
+    "chip": "Apple M5 Pro",
+    "logical_cpus": "18",
+    "memory_bytes": "51539607552",
+    "os": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.12.7",
+    "torch": "2.15.0",
+    "transformers": "5.22.1"
+  },
+  "models": {
+    "HuggingFaceTB/SmolLM2-1.7B-Instruct": "31b70e2e869a7173562077fd711b654946d38674",
+    "HuggingFaceTB/SmolLM2-135M-Instruct": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+    "HuggingFaceTB/SmolLM2-360M-Instruct": "a10cc1512eabd3dde888204e902eca88bddb4951"
+  },
+  "draft_weights_sha256": {
+    "artifacts/drafts/distilled-30/model.safetensors": "2739098cd96b7a7a52f9d46504beea2e425a38a80798be3ade175d597b4d1842",
+    "artifacts/drafts/distilled-4/model.safetensors": "d85d76cba205cb3e9d5d80cb7c16b32d1de66845ca0b24ef3e0de6920eaec3f8",
+    "artifacts/drafts/distilled-8/model.safetensors": "90bcfc076ba4a1adec7f8eaf2365bdc3d8034d113b61e5726d16339055603496"
+  },
+  "inputs_sha256": {
+    "data/general_prompts.txt": "357ea50b01b4c308d7822d51175032962c0b80727d1cd507693fb32f34d7dd49",
+    "data/general_test.jsonl": "a912e6edfef12f3e31da91ecd741127f1fb05252eff292245e79ecddd8987271",
+    "data/general_validation.jsonl": "a6f8241072d07996628560527217c4424f1d816d33b3786c5619a782511e8b09",
+    "data/receipts_test.jsonl": "a5ea2424b88b44a98c19587d84f8d2ba72a9d9e41ffc74976e3bea65654657b1",
+    "data/receipts_train.jsonl": "e208f936b91b26e2522105c044c09dcaef41d1adc4af2d13d2e1e68771eddad8",
+    "data/receipts_validation.jsonl": "29e531ed05b3c913d03a529163c6bb09e56d29f51396616ac1e1fdcad4631494"
+  },
+  "raw_records": {
+    "path": "raw.jsonl",
+    "sha256": "4d67a4cee547e9aec10ddb36f0cc27f0d7682e5b0bca0a4ae20dd765cd6db1fc"
+  }
+}

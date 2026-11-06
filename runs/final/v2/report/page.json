@@ -1,0 +1,43 @@
+{
+  "provenance": "Recorded on an Apple M5 Pro with 48 GB of memory. This page replays saved timings. Nothing runs in your browser.",
+  "headline": [
+    {
+      "value": "2.27x",
+      "label": "fastest on unseen receipts"
+    },
+    {
+      "value": "9.4",
+      "label": "tokens per large model pass"
+    },
+    {
+      "value": "0.92x",
+      "label": "adaptive against the best fixed length"
+    },
+    {
+      "value": "2.37x",
+      "label": "adaptive when the text changes"
+    }
+  ],
+  "claims": [
+    {
+      "title": "The output follows the large model",
+      "text": "The sampler is checked by enumerating every path on small cases, and by 1500 draws per arm on real weights. Its p-values ran from 0.08 to 0.61, and a deliberately wrong sampler failed the same test."
+    },
+    {
+      "title": "The test prompts stayed unseen",
+      "text": "These hotel, bookstore and parking receipt families were held out of training and tuning, and every setting was frozen before they ran."
+    },
+    {
+      "title": "The main claim failed",
+      "text": "Adaptive needed a 95 percent interval above 1.00 against the best fixed length. It came in at 0.87 to 0.97, so the claim is not supported. A well tuned fixed length wins when the text looks like what it was tuned for."
+    },
+    {
+      "title": "Adaptive protects against the wrong tuning",
+      "text": "On text the draft was not trained for, the same fixed length fell to 0.37x of the large model alone. Adaptive shortened its drafts and held 0.87x."
+    }
+  ],
+  "footer": [
+    "Commit 0070a9a.",
+    "24 prompts, 3 repeats, batch size 1."
+  ]
+}

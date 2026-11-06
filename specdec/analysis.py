@@ -142,6 +142,7 @@ def arm_summary(records: list[dict]) -> dict:
         "tokens_per_pass": delivered / passes if passes else None,
         "acceptance": accepted / drafted if drafted else None,
         "peak_rss_gb": max(record["peak_rss_bytes"] for record in records) / 1e9,
+        "gpu_memory_gb": max(record.get("mps_driver_bytes", 0) for record in records) / 1e9,
     }
 
 

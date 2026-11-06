@@ -93,6 +93,23 @@ def task_accuracy(records: list[dict]) -> dict:
     }
 
 
+def cold_rows(run_dir: Path) -> list[list]:
+    """Summarize the first request in a fresh process, per arm and workload."""
+    grouped: dict[tuple, list[dict]] = defaultdict(list)
+    for record in load_records(run_dir / "cold.jsonl"):
+        grouped[(record["workload"], record["arm"])].append(record)
+    return [
+        [
+            workload,
+            arm,
+            number(sum(r["load_s"] for r in group) / len(group)),
+            number(sum(r["ttft_s"] for r in group) / len(group), 3),
+            number(sum(r["wall_s"] for r in group) / len(group)),
+        ]
+        for (workload, arm), group in sorted(grouped.items())
+    ]
+
+
 def machine_load(records: list[dict]) -> str:
     """Describe the one minute load average seen at the end of each pass."""
     loads = sorted(record["load_1m"] for record in records if "load_1m" in record)
@@ -227,13 +244,32 @@ def law_audit_range(path: Path = LAW_AUDIT) -> tuple[int, float, float]:
     return audit["draws_per_arm"], min(values), max(values)
 
 
+def fastest_of_this_engine(comparisons: list, workload: str, batch: int):
+    """Return this engine's fastest arm against target-only. Assisted is upstream code."""
+    return max(
+        (
+            item
+            for item in comparisons
+            if item.baseline == "target"
+            and item.workload == workload
+            and item.batch_size == batch
+            and not item.arm.startswith("assisted")
+        ),
+        key=lambda item: item.ratio,
+    )
+
+
 def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, item, supported: bool):
     """Write the numbers and sentences of the replay page. No number is typed by hand."""
     manifest = json.loads((run_dir / "manifest.json").read_text())
     rule = frozen["decision"]
-    workload, batch, adaptive = rule["workload"], rule["batch_size"], rule["adaptive"]
-    speedup = find_comparison(comparisons, adaptive, "target", workload, batch)
-    stats = summary[(workload, batch, adaptive)]
+    workload, batch = rule["workload"], rule["batch_size"]
+    adaptive, fixed = rule["adaptive"], rule["best_fixed"]
+    fastest = fastest_of_this_engine(comparisons, workload, batch)
+    stats = summary[(workload, batch, fastest.arm)]
+    shifted = find_comparison(comparisons, adaptive, fixed, "general_test", batch)
+    fixed_shifted = find_comparison(comparisons, fixed, "target", "general_test", batch)
+    adaptive_shifted = find_comparison(comparisons, adaptive, "target", "general_test", batch)
     draws, low_p, high_p = law_audit_range()
     chip = manifest["hardware"]["chip"]
     memory_gb = int(manifest["hardware"]["memory_bytes"]) / 2**30
@@ -242,10 +278,10 @@ def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, ite
         "provenance": f"Recorded on an {chip} with {memory_gb:.0f} GB of memory. "
         "This page replays saved timings. Nothing runs in your browser.",
         "headline": [
-            {"value": f"{speedup.ratio:.2f}x", "label": "speed against the large model alone"},
-            {"value": f"{item.ratio:.2f}x", "label": "speed against the best fixed length"},
-            {"value": f"{stats['acceptance']:.2f}", "label": "of drafted tokens accepted"},
+            {"value": f"{fastest.ratio:.2f}x", "label": "fastest on unseen receipts"},
             {"value": f"{stats['tokens_per_pass']:.1f}", "label": "tokens per large model pass"},
+            {"value": f"{item.ratio:.2f}x", "label": "adaptive against the best fixed length"},
+            {"value": f"{shifted.ratio:.2f}x", "label": "adaptive when the text changes"},
         ],
         "claims": [
             {
@@ -260,15 +296,22 @@ def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, ite
                 "training and tuning, and every setting was frozen before they ran.",
             },
             {
-                "title": "The rule was set in advance",
-                "text": f"The adaptive claim needed a 95 percent interval above "
+                "title": "The main claim failed",
+                "text": "Adaptive needed a 95 percent interval above "
                 f"{rule['minimum_ratio']:.2f} against the best fixed length. It came in at "
-                f"{item.low:.3f} to {item.high:.3f}, so the claim is {outcome}.",
+                f"{item.low:.2f} to {item.high:.2f}, so the claim is {outcome}. A well tuned "
+                "fixed length wins when the text looks like what it was tuned for.",
+            },
+            {
+                "title": "Adaptive protects against the wrong tuning",
+                "text": "On text the draft was not trained for, the same fixed length fell to "
+                f"{fixed_shifted.ratio:.2f}x of the large model alone. Adaptive shortened its "
+                f"drafts and held {adaptive_shifted.ratio:.2f}x.",
             },
         ],
         "footer": [
             f"Commit {manifest['commit'][:7]}.",
-            f"{speedup.units} prompts, {speedup.repeats} repeats, batch size {batch}.",
+            f"{item.units} prompts, {item.repeats} repeats, batch size {batch}.",
         ],
     }
 
@@ -312,7 +355,7 @@ def build_report(run_dir: Path) -> None:
             number(s["acceptance"]),
             number(s["tokens_per_pass"]),
             number(s["accepted_per_pass"]),
-            number(s["peak_rss_gb"], 1),
+            number(s["gpu_memory_gb"], 1),
         ]
         for (workload, batch, arm), s in sorted(summary.items())
     ]
@@ -330,7 +373,7 @@ def build_report(run_dir: Path) -> None:
         "Acceptance",
         "Tokens per pass",
         "Accepted per pass",
-        "Peak RSS GB",
+        "GPU memory GB",
     ]
     comparison_rows = [
         [
@@ -384,6 +427,12 @@ def build_report(run_dir: Path) -> None:
             markdown_table(comparison_headers, comparison_rows),
             "## Arm summaries",
             markdown_table(headers, rows),
+            "## Cold requests",
+            "The first request in a fresh process, batch size 1, one request per workload.",
+            markdown_table(
+                ["Workload", "Arm", "Load s", "TTFT s", "Wall s"],
+                cold_rows(run_dir),
+            ),
             "## Task accuracy",
             "Receipts only. This measures text quality, not sampler correctness.",
             markdown_table(

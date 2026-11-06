@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from specdec.report import find_comparison, law_audit_range
+from specdec.report import fastest_of_this_engine, find_comparison, law_audit_range
 
 
 @dataclass
@@ -12,6 +12,7 @@ class Item:
     baseline: str
     workload: str
     batch_size: int
+    ratio: float = 1.0
 
 
 def test_find_comparison_refuses_a_pair_that_was_not_frozen():
@@ -30,3 +31,12 @@ def test_law_audit_range_leaves_out_the_negative_control(tmp_path):
     ]
     path.write_text(json.dumps({"draws_per_arm": 1500, "rows": rows}))
     assert law_audit_range(path) == (1500, 0.2, 0.6)
+
+
+def test_fastest_arm_leaves_out_upstream_code():
+    items = [
+        Item("fixed/135m/k3", "target", "receipts_test", 1, 1.7),
+        Item("assisted/135m/k3/constant", "target", "receipts_test", 1, 2.0),
+        Item("fixed/135m/k2", "target", "receipts_test", 4, 3.0),
+    ]
+    assert fastest_of_this_engine(items, "receipts_test", 1).arm == "fixed/135m/k3"
