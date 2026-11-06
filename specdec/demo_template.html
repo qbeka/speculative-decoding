@@ -281,6 +281,7 @@
       Back
     </a>
     <nav aria-label="More about Speculative Decoding">
+      <a class="quiet" href="#details">Details</a>
       <a class="quiet" href="https://github.com/qbeka/speculative-decoding">GitHub</a>
     </nav>
   </header>
@@ -363,6 +364,42 @@
       <p class="sr-only" role="status" id="status"></p>
     </section>
 
+    <section class="reading" id="details" aria-labelledby="details-title">
+      <h2 id="details-title">Details</h2>
+      <p class="prose">A small model drafts a few tokens. One pass of the large model checks them together, keeps them up to the first rejection and writes the next token itself. A controller picks how long the next draft should be.</p>
+      <p class="prose">The engine is exact, which means it has the same output distribution as the large model alone. The controller was the part under test, and it lost that test.</p>
+
+      <h3>Results</h3>
+      <dl class="results">
+        <div><dt>Fastest decoder</dt><dd><b>2.27x the large model alone</b>Measured on held-out receipts with a 95% CI of 2.05 to 2.55, across 2,754 timed requests. This came from a fixed length with a distilled draft, which is larger than the draft in the replay, and the controller played no part in it.</dd></div>
+        <div><dt>Controller, preregistered test</dt><dd><b>Failed, 0.92x a tuned fixed length</b>Adaptive had to beat fixed length 12 on held-out receipts, and it came in below it with a 95% CI of 0.866 to 0.968.</dd></div>
+        <div><dt>When the workload shifted</dt><dd><b>2.37x the same fixed length</b>Adaptive against fixed length 12 on general text, with a 95% CI of 2.07 to 2.64. It was still slower than no speculation, at 0.87x of the large model alone.</dd></div>
+        <div><dt>Distilled draft</dt><dd><b>1.31x the stock draft</b>Measured against the stock draft's best fixed length with a 95% CI of 1.23 to 1.39. This comparison was exploratory and sat outside the frozen plan.</dd></div>
+        <div><dt>Hugging Face assisted generation</dt><dd><b>Within 3 percent</b>The two matched this closely at equal settings.</dd></div>
+        <div><dt>Batched against single requests</dt><dd><b>324 of 324 requests match</b>Batch results reproduced single requests token for token.</dd></div>
+        <div><dt>Sampler</dt><dd><b>p from 0.08 to 0.61</b>These came from 1,500 draws per arm on real weights at short drafts, where a draft-only control failed. Every random path through the real engine was also enumerated.</dd></div>
+      </dl>
+
+      <h3>Limits</h3>
+      <ul class="limits">
+        <li>Exact means the same output distribution. Each run's text differs, and task accuracy did not change. The replay does not show that any two outputs match.</li>
+        <li>The controller limits the damage from wrong tuning, and a short fixed length on the stock draft avoided the same problem without it.</li>
+        <li>A seed bug in my harness made requests dependent, so I discarded a 2.8 hour final run and reran the frozen plan. The discarded run put the primary ratio at 1.04x, so the size of the loss is not settled.</li>
+        <li>The batching is static and ran on one laptop, so these numbers say nothing about production serving.</li>
+        <li>The replay shows saved timings and text from single requests. The recordings are the ones whose draft length changed most, so their rates can differ from the results above, which cover the whole run.</li>
+      </ul>
+
+      <h3>Method</h3>
+      <p class="prose">The plan was frozen before the test split ran. The <a href="https://github.com/qbeka/speculative-decoding/blob/main/docs/report.md">report</a> has every comparison and how it was run.</p>
+
+      <div class="page-end">
+        <a class="quiet back" href="https://www.qendrimbeka.com/">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </a>
+        <a class="quiet" href="https://github.com/qbeka/speculative-decoding">GitHub</a>
+      </div>
+    </section>
   </main>
 </div>
 
