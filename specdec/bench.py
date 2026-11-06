@@ -7,6 +7,7 @@ Units: every `_s` field is seconds. Rejected draft tokens are never counted as
 output: `new_tokens` comes from the committed sequence only.
 """
 
+import hashlib
 import json
 import os
 import resource
@@ -101,7 +102,8 @@ class TimingStreamer(BaseStreamer):
 
 def request_seed(prompt_id: str, repeat: int) -> int:
     """The same prompt and repeat get the same seed in every arm."""
-    return int.from_bytes(f"{prompt_id}:{repeat}".encode()[-7:], "little") % (2**31)
+    digest = hashlib.sha256(f"{prompt_id}:{repeat}".encode()).digest()
+    return int.from_bytes(digest[:4], "little") % (2**31)
 
 
 def generation_record(generation: Generation, controller=None) -> dict:

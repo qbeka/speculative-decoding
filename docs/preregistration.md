@@ -65,3 +65,11 @@ static batch above that.
 
 EAGLE is left out, because it needs a trained draft head that does not exist for this target.
 Latency under open-loop arrival is left out: batching here is static.
+
+## Amendment after the first final run
+
+The plan above did not change. `runs/final/v1` was discarded for a seed bug, and
+`runs/final/v2` repeats the same plan with independent seeds. See decision 6 in
+`DECISIONS.md`. The primary claim was not supported in v1, and that result was known
+before v2 ran. Nothing was tuned between the two runs.
+

@@ -64,3 +64,22 @@ only selects a fixed length and controller settings, and it compares arms on the
 prompts, so one repeat is enough to rank them. The test run carries the evidence and
 keeps its own repeats. The few records from the abandoned second repeat were removed
 so every arm has the same denominator.
+
+## 6. The first final run was discarded because of a seed bug
+
+`request_seed` kept only the low bytes of a string, so almost every request in
+`runs/final/v1` drew from the same few seeds, across prompts and across repeats. Each
+request was still a valid sample of the target's law, but the requests were not
+independent: repeats replayed the same text, and every prompt saw the same uniform draws.
+Intervals over prompts would then be too narrow.
+
+It came up while checking why JSON parsing failed only at batch size 4. That turned out
+to be a coincidence of those random paths, not an engine fault: at equal seeds, batch
+size 1 and batch size 4 gave identical tokens on 120 of 120 receipts compared.
+
+The fix hashes the prompt id and repeat, and `tests/test_bench.py` covers it.
+`config/frozen.json` did not change. `runs/final/v2` reruns it, and it is the only run
+the README, the page and the report quote. `runs/final/v1` stays in the repository as
+the record of this failure. The validation sweep had the same bug. It only chose
+settings, so it was not rerun, and those settings may be less well chosen than they look.
+

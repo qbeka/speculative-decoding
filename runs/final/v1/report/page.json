@@ -1,0 +1,39 @@
+{
+  "provenance": "Recorded on an Apple M5 Pro with 48 GB of memory. This page replays saved timings. Nothing runs in your browser.",
+  "headline": [
+    {
+      "value": "1.97x",
+      "label": "speed against the large model alone"
+    },
+    {
+      "value": "1.04x",
+      "label": "speed against the best fixed length"
+    },
+    {
+      "value": "0.56",
+      "label": "of drafted tokens accepted"
+    },
+    {
+      "value": "3.6",
+      "label": "tokens per large model pass"
+    }
+  ],
+  "claims": [
+    {
+      "title": "The output follows the large model",
+      "text": "The sampler is checked by enumerating every path on small cases, and by 1500 draws per arm on real weights. Its p-values ran from 0.08 to 0.61, and a deliberately wrong sampler failed the same test."
+    },
+    {
+      "title": "The test prompts stayed unseen",
+      "text": "These hotel, bookstore and parking receipt families were held out of training and tuning, and every setting was frozen before they ran."
+    },
+    {
+      "title": "The rule was set in advance",
+      "text": "The adaptive claim needed a 95 percent interval above 1.00 against the best fixed length. It came in at 0.965 to 1.124, so the claim is not supported."
+    }
+  ],
+  "footer": [
+    "Commit c250a73.",
+    "24 prompts, 3 repeats, batch size 1."
+  ]
+}

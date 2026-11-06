@@ -1,0 +1,21 @@
+{
+  "rule": {
+    "adaptive": "adaptive/distilled-8",
+    "best_fixed": "fixed/distilled-8/k12",
+    "workload": "receipts_test",
+    "batch_size": 1,
+    "minimum_ratio": 1.0
+  },
+  "result": {
+    "arm": "adaptive/distilled-8",
+    "baseline": "fixed/distilled-8/k12",
+    "workload": "receipts_test",
+    "batch_size": 1,
+    "ratio": 1.0408203385443617,
+    "low": 0.9648563175677304,
+    "high": 1.1242675592599591,
+    "units": 24,
+    "repeats": 3
+  },
+  "supported": false
+}
