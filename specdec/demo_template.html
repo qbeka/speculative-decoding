@@ -310,6 +310,7 @@ const DATA = JSON.parse(document.getElementById('data').textContent);
 const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const SPEEDS = [[0.1, '1/10'], [0.25, '1/4'], [1, '1x']];
+const REDUCED_STEP_S = 0.9;
 const STRIP = 100;
 
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -317,6 +318,7 @@ const state = { caseIndex: 0, traceIndex: 0, armIndex: 2, t: 0, speed: SPEEDS[0]
 let trace = null;
 let total = 1;
 let lastFrame = 0;
+let heldFor = 0;
 let drawn = {};
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -568,6 +570,7 @@ function setPlaying(value) {
   state.playing = value;
   if (value) {
     lastFrame = performance.now();
+    heldFor = 0;
     requestAnimationFrame(frame);
   }
 }
@@ -576,11 +579,22 @@ function seek(t) {
   state.t = Math.min(total, Math.max(0, t));
 }
 
+/* With reduced motion the replay moves one draft at a time and nothing slides. */
+function reducedStep(seconds) {
+  heldFor += seconds;
+  if (heldFor < REDUCED_STEP_S) return;
+  heldFor = 0;
+  const arm = selectedArm();
+  const next = arm.blocks[blocksDone(arm, state.t)];
+  seek(next ? next.end_s : total);
+}
+
 function frame(now) {
   if (!state.playing) return;
   const seconds = Math.min(now - lastFrame, 100) / 1000;
   lastFrame = now;
-  seek(state.t + seconds * state.speed);
+  if (motion.matches) reducedStep(seconds);
+  else seek(state.t + seconds * state.speed);
   if (state.t >= total) setPlaying(false);
   paint();
   if (state.playing) requestAnimationFrame(frame);
