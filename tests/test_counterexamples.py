@@ -65,10 +65,15 @@ def test_an_off_by_one_target_row_is_caught(monkeypatch):
     assert law_gap(table_model(3, "target"), table_model(3, "draft"), 3) > 0.01
 
 
-def test_a_session_that_skips_rollback_is_caught(monkeypatch):
-    monkeypatch.setattr("specdec.sessions.ToySession.rollback", lambda self, length: None)
-    with pytest.raises((AssertionError, ValueError, IndexError)):
-        assert law_gap(table_model(3, "target"), table_model(3, "draft"), 3) < 1e-9
+def test_a_session_that_rolls_back_to_stale_contents_is_caught(monkeypatch):
+    """The length comes back right and one cached token is wrong, as a bad cache would be."""
+
+    def stale_rollback(self, length):
+        del self.tokens[length:]
+        self.tokens[-1] = (self.tokens[-1] + 1) % 3
+
+    monkeypatch.setattr("specdec.sessions.ToySession.rollback", stale_rollback)
+    assert law_gap(table_model(3, "target"), table_model(3, "draft"), 3) > 0.01
 
 
 def test_verify_block_rejects_a_token_the_draft_could_not_have_drawn():

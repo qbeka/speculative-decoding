@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from specdec.batch import BatchSession, ToyBatch, generate_batch
+from specdec.controller import AdaptiveController, ControllerConfig, CostPrior
 from specdec.exhaustive import exact_law, target_law, total_variation
 from specdec.generate import GenerationConfig, fixed_block_length, generate
 from specdec.models import ModelSession
@@ -82,11 +83,11 @@ def test_keep_drops_sequences_and_preserves_the_rest(target_model):
     assert torch.allclose(rows[1], ModelSession(target_model).extend([1, 2, 3]), atol=TOLERANCE)
 
 
-@pytest.mark.parametrize("block_length", [0, 1, 2])
-def test_batched_toy_law_is_the_product_of_target_laws(block_length):
+def toy_batch_gap(make_policy, max_new_tokens):
+    """Return the distance between the batch's joint law and the product of target laws."""
     target_fn, draft_fn = table_model(3, "target"), table_model(3, "draft")
     prompts = [[0, 1], [1, 2]]
-    config = GenerationConfig(max_new_tokens=2, eos_token_id=2)
+    config = GenerationConfig(max_new_tokens=max_new_tokens, eos_token_id=2)
 
     def run(rng):
         shared = Shared(rng)
@@ -95,21 +96,63 @@ def test_batched_toy_law_is_the_product_of_target_laws(block_length):
             ToyBatch(draft_fn, 2),
             prompts,
             config,
-            fixed_block_length(block_length),
+            make_policy(),
             [shared, shared],
         )
         return tuple(tuple(generation.new_tokens) for generation in generations)
 
     sampling = SamplingConfig()
     first, second = (
-        target_law(lambda prefix: to_probabilities(target_fn(prefix), sampling), tuple(p), 2, 2)
+        target_law(
+            lambda prefix: to_probabilities(target_fn(prefix), sampling),
+            tuple(p),
+            max_new_tokens,
+            2,
+        )
         for p in prompts
     )
     expected = {(a, b): pa * pb for a, pa in first.items() for b, pb in second.items()}
-    assert total_variation(exact_law(run), expected) < 1e-11
+    return total_variation(exact_law(run), expected)
 
 
-@pytest.mark.parametrize("block_length", [0, 1, 3])
+@pytest.mark.parametrize("block_length", [0, 1, 2])
+def test_batched_toy_law_is_the_product_of_target_laws(block_length):
+    # Three new tokens leave room for a block of two, so the length is not clamped.
+    assert toy_batch_gap(lambda: fixed_block_length(block_length), 3) < 1e-11
+
+
+def test_the_real_controller_keeps_the_joint_law_of_a_batch():
+    prior = CostPrior(0.003, 0.03, 0.001, 0.0)
+    config = ControllerConfig(max_block_length=2, half_life_positions=1.0, prior_weight=0.5)
+    assert toy_batch_gap(lambda: AdaptiveController(prior, config), 3) < 1e-11
+
+
+def test_a_batch_of_one_keeps_the_law_at_length_two_on_a_real_model(target_model, draft_model):
+    """A joint law over two requests at this length is too large to enumerate here."""
+    prompt = [1, 2, 3]
+    config = GenerationConfig(max_new_tokens=3, eos_token_id=3)
+
+    def run(rng):
+        generation = generate_batch(
+            BatchSession(target_model, 1),
+            BatchSession(draft_model, 1),
+            [prompt],
+            config,
+            fixed_block_length(2),
+            [rng],
+        )[0]
+        return tuple(generation.new_tokens)
+
+    sampling = SamplingConfig()
+
+    def probabilities(prefix):
+        return to_probabilities(ModelSession(target_model).extend(list(prefix))[-1], sampling)
+
+    expected = target_law(probabilities, tuple(prompt), 3, 3)
+    assert total_variation(exact_law(run), expected) < 1e-8
+
+
+@pytest.mark.parametrize("block_length", [0, 1])
 def test_batched_law_on_a_real_cached_model(target_model, draft_model, block_length):
     """Exact law through padding, holes, masks and early finishers on a real model."""
     prompts = [[1, 2, 3], [4, 3]]

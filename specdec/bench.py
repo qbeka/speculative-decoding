@@ -184,10 +184,9 @@ class ArmRunner:
         """Run `transformers` assisted generation. Its loop and sampler are upstream code."""
         torch.manual_seed(seed)
         draft_config = self.draft.generation_config
-        if self.arm.assisted_schedule == "constant":
-            draft_config.num_assistant_tokens = self.arm.block_length
-            draft_config.num_assistant_tokens_schedule = "constant"
-            draft_config.assistant_confidence_threshold = 0.0
+        draft_config.num_assistant_tokens = self.arm.block_length
+        draft_config.num_assistant_tokens_schedule = self.arm.assisted_schedule
+        draft_config.assistant_confidence_threshold = 0.0
         input_ids = torch.tensor([prompt], device=self.device)
         started = perf_counter()
         streamer = TimingStreamer(started)
