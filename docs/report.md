@@ -148,5 +148,4 @@ measures the model, not the sampler.
 ## Failures that changed the work
 
 See `DECISIONS.md`. The main ones are a discarded final run caused by a seed bug, float16 failing
-the law check, a training run that exhausted memory and a mislabeled baseline. `reviews.md` lists
-what the review found.
+the law check, a training run that exhausted memory and a mislabeled baseline.

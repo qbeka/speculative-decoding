@@ -110,7 +110,6 @@ picks the length with the highest expected tokens per second.
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decisions and failed experiments |
 | [`docs/RESEARCH_NOTES.md`](docs/RESEARCH_NOTES.md) | What the papers say and where this differs |
 | [`docs/artifacts.md`](docs/artifacts.md) | Which command produced which file |
-| [`docs/reviews.md`](docs/reviews.md) | Review findings and fixes |
 
 ## What the numbers leave out
 
