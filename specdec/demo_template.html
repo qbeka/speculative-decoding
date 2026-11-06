@@ -4,616 +4,853 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Speculative Decoding</title>
-<meta name="description" content="Faster local inference with the same output law, replayed from a recorded run.">
+<meta name="description" content="Draft a few tokens and check them together">
 <style>
-@font-face {
-  font-family: "Geist Serif";
-  src: url(data:font/woff2;base64,/*FONT*/) format("woff2");
-  font-display: swap;
-}
-/* Tokens from qendrimbeka.com, which took them from kobamoney.com. */
+/*FOUNDATION*/
+</style>
+<style>
 :root {
-  color-scheme: light;
-  --paper: #ffffff;
-  --card: #ffffff;
-  --ink: #111511;
-  --body: #444944;
-  --muted: #5a5e5a;
-  --quiet: #8d918e;
-  --forest: #1d3a2a;
-  --line: #11151117;
-  --line-strong: #1115112e;
-  --tile: #6040200e;
-  --accepted: #157a5a;
-  --accepted-wash: #157a5a1a;
-  --rejected: #c4623a;
-  --radius-card: 18px;
-  --radius-tile: 28px;
+  --stage-height: clamp(548px, calc(100svh - 164px), 700px);
+  --kept: #0f6b4f;
+  --kept-wash: #157a5a14;
+  --kept-line: #157a5a59;
+  --lost: #a8481f;
+  --lost-wash: #c4623a14;
+  --lost-line: #c4623a73;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --pad: 16px;
+  --side: 268px;
+  --lane: 30px;
+  --name-column: 148px;
+  --read-column: 236px;
 }
-* { box-sizing: border-box; }
-html { background: var(--paper); -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font: 16px/24px "Geist Serif", Georgia, serif;
-  font-synthesis: none;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-}
-::selection { background: #1d3a2a26; }
-:focus-visible { outline: 2px solid var(--forest); outline-offset: 3px; border-radius: 6px; }
-a { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong);
-  text-underline-offset: 4px; }
-a:hover { text-decoration-color: currentColor; }
+@media (pointer: coarse) { :root { --lane: 46px; } }
 
-/* The signature: the recording's own acceptance trace, drawn as hairline ridges. */
-.ridge {
-  display: block;
-  width: 100vw;
-  height: 170px;
-  margin: 28px 0 0 calc(50% - 50vw);
-  pointer-events: none;
-}
-.ridge path {
-  fill: none;
-  stroke: var(--forest);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: draw 2.6s cubic-bezier(.45, 0, .2, 1) forwards;
-}
-@keyframes draw { to { stroke-dashoffset: 0; } }
+.title { grid-template-columns: minmax(0, 1fr); margin-bottom: 14px; }
 
-.page { position: relative; max-width: 860px; margin: 0 auto; padding: 0 24px 96px; }
-.hero { padding: 104px 0 0; max-width: 620px; }
-.eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 18px; }
-h1 {
-  margin: 0;
-  font-size: clamp(2.25rem, 1.7rem + 3vw, 3.5rem);
-  line-height: 1.04;
-  letter-spacing: -0.032em;
-}
-.lede { margin: 18px 0 0; font-size: clamp(1.0625rem, 1rem + .3vw, 1.1875rem); line-height: 1.5;
-  color: var(--body); max-width: 34rem; }
-.recorded { margin: 14px 0 0; font-size: 13px; color: var(--muted); max-width: 36rem; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto auto auto; }
+.bar, .work, .lanes, .compare { grid-column: 1 / -1; }
 
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 28px 0 0; }
-.stat { background: #f7f6f3; border-radius: var(--radius-card); padding: 14px 16px; }
-.stat b { display: block; font-size: 1.5rem; line-height: 1;
-  letter-spacing: -0.028em; font-variant-numeric: tabular-nums; }
-.stat span { display: block; margin-top: 7px; font-size: 13px; line-height: 18px; color: var(--muted); }
-
-section { margin-top: 88px; }
-h2 { margin: 0 0 6px; font-size: 1.5rem; line-height: 1.15;
-  letter-spacing: -0.028em; }
-.note { margin: 0; font-size: 15px; line-height: 1.6; color: var(--body); max-width: 36rem; }
-
-.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 24px 0 18px; }
-.pill {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 44px; padding: 0 20px; border-radius: 999px;
-  font: inherit; font-size: 15px; letter-spacing: -0.012em;
-  border: 1px solid #ffffff26; background: #121412; color: #fff; cursor: pointer;
-  box-shadow: 0 1px 2px #0000002e; transition: background .15s;
-  min-width: 92px;
+/* What is being replayed */
+.bar {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  padding: 7px var(--pad); border-bottom: 1px solid var(--line);
 }
-.pill:hover { background: #2a2d2a; }
-.field {
-  appearance: none; -webkit-appearance: none;
-  height: 44px; padding: 0 38px 0 16px; border-radius: 999px;
-  font: inherit; font-size: 15px; color: var(--ink);
-  border: 1px solid var(--line-strong); max-width: 100%; cursor: pointer;
-  background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235a5e5a'/%3E%3C/svg%3E") no-repeat right 16px center;
+.switch { display: flex; flex: none; gap: 4px; }
+.bar .divider { margin: 6px 8px; }
+.picker {
+  appearance: none; -webkit-appearance: none; flex: 0 1 480px; min-width: 0; margin: 0;
+  min-height: var(--control-height); padding: 0 30px 0 11px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-control);
+  background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23535753' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 11px center;
+  color: var(--ink); font: 400 13px/16px var(--sans); letter-spacing: -0.003em;
+  text-overflow: ellipsis; cursor: pointer; transition: background-color .12s, border-color .12s;
+  -webkit-tap-highlight-color: transparent;
 }
-#trace { flex: 1 1 240px; min-width: 0; }
-.scrub-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
-.clock { flex: none; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-input[type=range] {
-  appearance: none; -webkit-appearance: none; flex: 1 1 auto; min-width: 0; height: 24px;
-  background: transparent; cursor: pointer; margin: 0;
+.picker:active { background-color: var(--wash-strong); }
+@media (hover: hover) {
+  .picker:hover { background-color: var(--surface); border-color: #11151147; }
+  .picker:active { background-color: var(--wash-strong); }
 }
-input[type=range]::-webkit-slider-runnable-track { height: 1px; background: var(--line-strong); }
-input[type=range]::-moz-range-track { height: 1px; background: var(--line-strong); }
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 11px; height: 11px; margin-top: -5px;
-  border-radius: 50%; background: var(--forest); border: 0;
-}
-input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%;
-  background: var(--forest); border: 0; }
+.mode { flex: none; margin-left: auto; padding-left: 16px; font-size: 13px; line-height: 20px; color: var(--muted); }
 
-.columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.arm { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card);
-  padding: 16px; min-width: 0; }
-.arm h3 { margin: 0; font-size: 15px; letter-spacing: -0.012em; }
-.arm .rate { display: block; margin-top: 8px; font-size: 1.5rem; line-height: 1;
-  letter-spacing: -0.028em; font-variant-numeric: tabular-nums; }
-.arm .count { display: block; margin-top: 6px; font-size: 13px; color: var(--muted);
-  font-variant-numeric: tabular-nums; }
-.bar { height: 1px; background: var(--line-strong); margin: 12px 0; position: relative; }
-.bar i { position: absolute; left: 0; top: -.5px; height: 2px; background: var(--forest);
-  border-radius: 2px; width: 0; }
-.output {
-  font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--body);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  height: 244px;
-  overflow-y: auto;
-  scrollbar-width: thin;
+/* The text going in, the draft being checked, the text coming out */
+.work { display: grid; grid-template-columns: var(--side) minmax(0, 1fr) var(--side); min-height: 0; }
+.side { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 14px var(--pad) 12px; }
+.input { border-right: 1px solid var(--line); }
+.output { border-left: 1px solid var(--line); }
+.side h2 { flex: none; margin: 0 0 8px; font: 400 13px/20px var(--sans); color: var(--muted); }
+.side h2 span { color: var(--ink); }
+.task { flex: none; margin: -4px 0 10px; font: 400 15px/20px var(--serif); color: var(--body); }
+.text {
+  flex: 1 1 auto; min-height: 0; margin: 0; overflow: auto; scrollbar-width: thin;
+  font: 400 11.5px/17px var(--mono); color: var(--body);
 }
-.output .draft { background: var(--accepted-wash); color: var(--ink); border-radius: 2px; }
-.output .corrected { color: var(--ink); box-shadow: inset 0 -1.5px 0 var(--rejected); }
-.key { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 14px 0 0; padding: 0; list-style: none;
-  font-size: 13px; color: var(--muted); }
-.key i { display: inline-block; width: 18px; height: 11px; margin-right: 7px; vertical-align: -1px;
-  border-radius: 2px; }
-.key .k-draft { background: #157a5a33; }
-.key .k-target { box-shadow: inset 0 0 0 1px var(--line-strong); }
-.key .k-corrected { box-shadow: inset 0 -1.5px 0 var(--rejected); border-radius: 0; }
-details.prompt { margin-top: 12px; font-size: 13px; color: var(--muted); }
-details.prompt summary { cursor: pointer; width: max-content; }
-details.prompt pre { font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap;
-  overflow-wrap: anywhere; margin: 10px 0 0; padding: 14px 16px; background: #f7f6f3;
-  border-radius: var(--radius-card); color: var(--body); max-height: 240px; overflow-y: auto; }
+.input .text { white-space: pre; }
+.input[data-kind='prompt'] .text { white-space: pre-wrap; font: 400 17px/24px var(--serif); letter-spacing: -0.005em; }
+.output .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+.output .text:focus-visible { outline-offset: 1px; border-radius: 3px; }
+.output .draft { background: var(--kept-wash); box-shadow: inset 0 -1px 0 var(--kept-line); }
+.output .corrected { box-shadow: inset 0 -1.5px 0 var(--lost); }
+.side .caption { flex: none; margin: 8px 0 0; font-size: 12px; line-height: 16px; color: var(--muted); }
 
-.lane { margin-top: 26px; }
-.lane-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
-  font-size: 13px; color: var(--muted); }
-.lane-head b { color: var(--ink); }
-.lane svg { display: block; width: 100%; height: 72px; margin-top: 6px; overflow: visible; }
-.lane line { vector-effect: non-scaling-stroke; }
-.stem-kept { stroke: var(--accepted); stroke-width: 1.5; }
-.stem-lost { stroke: var(--rejected); stroke-width: 1.5; }
-.stem-none { stroke: var(--quiet); stroke-width: 1; }
-.selected .stem-kept, .selected .stem-lost, .selected .stem-none { stroke: var(--ink); stroke-width: 2.5; }
-.baseline { stroke: var(--line-strong); stroke-width: 1; }
-.playhead { stroke: var(--forest); stroke-width: 1; }
-.hit { fill: transparent; cursor: pointer; }
+.draft-block { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 14px 24px 0; }
+.draft-head { display: flex; flex: none; align-items: baseline; justify-content: space-between; gap: 16px; }
+.draft-head h2 { margin: 0; font: 400 24px/30px var(--serif); letter-spacing: -0.02em; white-space: nowrap; }
+.draft-head p { margin: 0; font-size: 13px; line-height: 20px; color: var(--muted); text-align: right; }
 
-.why { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px;
-  margin-top: 26px; padding: 24px; background: var(--card); border: 1px solid var(--line);
-  border-radius: var(--radius-tile); }
-.why h3 { margin: 0 0 8px; font-size: 1.1875rem; letter-spacing: -0.012em; line-height: 1.3; }
-.why p { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--body); }
-.why svg { display: block; width: 100%; height: auto; overflow: visible; }
-.why svg text { font-size: 12px; fill: var(--muted); }
-.why svg .value { fill: var(--ink); }
-.curve { fill: none; stroke: var(--forest); stroke-width: 1.5; }
-.grid-line { stroke: var(--line); stroke-width: 1; }
-.chosen-dot { fill: var(--accepted); stroke: var(--card); stroke-width: 2; }
-details.numbers { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
-details.numbers summary { cursor: pointer; width: max-content; }
-.table-wrap { overflow-x: auto; margin-top: 10px; }
-table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
-th, td { text-align: right; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); }
-td { color: var(--body); }
-tr.picked td { color: var(--ink); background: #f7f6f3; }
-
-.claims { margin: 22px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-.claims li { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; padding: 16px 0;
-  border-bottom: 1px solid var(--line); }
-.claims b { font-size: 15px; letter-spacing: -0.012em; }
-.claims span { font-size: 15px; line-height: 1.6; color: var(--body); }
-footer { margin-top: 72px; font-size: 13px; line-height: 20px; color: var(--muted); max-width: 40rem; }
-footer p { margin: 0 0 6px; }
-
-@media (max-width: 760px) {
-  .ridge { height: 120px; }
-  h1 br { display: none; }
-  .hero { padding-top: 64px; }
-  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .columns { grid-template-columns: minmax(0, 1fr); }
-  .output { height: 150px; }
-  .why { grid-template-columns: minmax(0, 1fr); padding: 18px; gap: 18px; border-radius: var(--radius-card); }
-  .claims li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.tokens {
+  display: flex; flex-wrap: wrap; gap: 25px 4px; width: 100%; margin: 0; padding: 0; list-style: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .ridge path { animation: none; stroke-dashoffset: 0; }
+.token-room { display: flex; flex: 1 1 auto; align-items: center; min-height: 118px; padding: 12px 0 22px; }
+.token {
+  position: relative; display: block; height: 38px; padding: 0 9px;
+  border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper);
+  font: 400 15px/36px var(--mono); color: var(--ink); white-space: pre;
+  transition: background-color .12s, border-color .12s, color .12s;
 }
+.token[data-state='kept'] { border-color: var(--kept-line); background: var(--kept-wash); color: var(--kept); }
+.token[data-state='rejected'] { border-color: var(--lost); background: var(--lost-wash); color: var(--lost); text-decoration: line-through; }
+.token[data-state='unused'] { border-style: dashed; background: transparent; color: var(--muted); text-decoration: line-through; }
+.token[data-state='written'] { border-color: var(--forest); background: var(--forest); color: #fff; }
+.written {
+  position: absolute; top: 100%; left: -1px; margin-top: 3px; padding: 0 5px; border-radius: 4px;
+  background: var(--forest); color: #fff; font: 400 12px/18px var(--mono); text-decoration: none;
+}
+.token.flip .written { right: -1px; left: auto; }
+
+.note { flex: none; margin: 0 0 10px; min-height: 44px; font: 400 15px/22px var(--serif); color: var(--body); letter-spacing: -0.003em; }
+
+.ledger {
+  display: grid; flex: none; grid-template-columns: repeat(3, minmax(0, 0.72fr)) minmax(0, 1.7fr);
+  margin: 0; padding: 8px 0 10px; border-top: 1px solid var(--line);
+}
+.ledger div { min-width: 0; padding-right: 12px; }
+.ledger dt { font-size: 12px; line-height: 16px; color: var(--muted); }
+.ledger dd { margin: 2px 0 0; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.ledger dd.waiting { font-weight: 400; color: var(--muted); }
+.ledger dd.lost { color: var(--lost); }
+.ledger dd.kept { color: var(--kept); }
+.ledger small { display: block; font-size: 12px; line-height: 16px; font-weight: 400; color: var(--muted); white-space: normal; }
+
+/* Moving through the recording */
+.transport {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  padding: 7px var(--pad); border-top: 1px solid var(--line);
+}
+.transport .primary { display: inline-grid; justify-items: center; min-width: 74px; }
+.transport .primary span { grid-area: 1 / 1; }
+.transport .primary span:not(.on) { visibility: hidden; }
+.step { min-width: 108px; }
+.step .brief { display: none; }
+.speed { display: flex; align-items: center; gap: 2px; padding: 7px var(--pad) 7px 0; border-top: 1px solid var(--line); }
+.speed > span { margin-right: 6px; font-size: 13px; color: var(--muted); }
+.speed .control { min-width: 44px; padding: 0 8px; }
+
+.lanes {
+  display: grid; grid-template-columns: var(--name-column) minmax(0, 1fr) var(--read-column);
+  grid-template-rows: 22px repeat(3, var(--lane)); column-gap: 12px;
+  padding: 0 var(--pad) 8px; border-top: 1px solid var(--line);
+}
+.lane-row { display: contents; }
+.lane-name {
+  grid-column: 1; justify-content: flex-start; align-self: center;
+  justify-self: start; min-height: min(calc(var(--lane) - 2px), var(--control-height));
+  padding: 0 9px; margin-left: -9px;
+}
+.axis {
+  grid-column: 2; grid-row: 1; display: flex; align-items: flex-end; justify-content: space-between;
+  font-size: 12px; line-height: 16px; color: var(--muted);
+}
+.read, .read-head {
+  grid-column: 3; display: grid; grid-template-columns: 62px 1fr 72px; align-items: center;
+  font-size: 13px; line-height: 16px; text-align: right;
+}
+.read-head { grid-row: 1; align-items: end; font-size: 12px; color: var(--muted); }
+.read { color: var(--body); }
+.read b { font-weight: 400; color: var(--ink); }
+.read.done b { font-weight: 500; }
+
+#scrub {
+  position: relative; grid-column: 2; grid-row: 2 / 5; min-width: 0; overflow: hidden;
+  border-radius: 3px; cursor: ew-resize; touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+#scrub svg { display: block; width: 100%; height: 100%; }
+#scrub path, #scrub line { fill: none; vector-effect: non-scaling-stroke; }
+.ground { stroke: var(--line); stroke-width: 1; }
+.ahead { stroke: var(--line-strong); stroke-width: 1.25; }
+.stem-kept { stroke: var(--kept); stroke-width: 1.25; }
+.stem-lost { stroke: var(--lost); stroke-width: 1.25; opacity: .78; }
+.stem-plain { stroke: var(--ink); stroke-width: 1.25; opacity: .62; }
+.finish { stroke: var(--ink); stroke-width: 1.5; }
+.playhead { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
+.playhead i { position: absolute; top: 0; bottom: 0; left: -0.5px; width: 1px; background: var(--forest); }
+.playhead i::before {
+  content: ''; position: absolute; top: 0; left: -3.5px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--forest); transition: transform .12s;
+}
+#scrub:active .playhead i::before { transform: scale(1.3); background: var(--forest-pressed); }
+#scrub:focus-visible { outline-offset: 1px; }
+@media (hover: hover) {
+  #scrub:hover .playhead i { background: var(--forest-hover); }
+  #scrub:hover .playhead i::before { background: var(--forest-hover); transform: scale(1.3); }
+  #scrub:active .playhead i::before { background: var(--forest-pressed); }
+}
+
+.compare {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px 20px; min-width: 0;
+  padding: 7px var(--pad) 8px; border-top: 1px solid var(--line);
+}
+.compare p { margin: 0; font-size: 13px; line-height: 18px; color: var(--body); }
+.compare b { font-weight: 500; color: var(--ink); }
+.compare b.loss { color: var(--lost); }
+.key { display: flex; flex: none; flex-wrap: wrap; gap: 2px 14px; margin: 0; padding: 0; list-style: none; font-size: 12px; line-height: 16px; color: var(--muted); }
+.key li { display: flex; align-items: center; gap: 6px; }
+.key i { width: 2px; height: 12px; border-radius: 1px; }
+.key .k-kept { background: var(--kept); }
+.key .k-lost { background: var(--lost); }
+.key .k-plain { background: var(--ink); opacity: .62; }
+
+/* Short screens: the lanes give up height before the draft does. */
+@media (min-width: 900px) and (max-height: 760px) {
+  :root { --lane: 26px; }
+  .token-room { min-height: 100px; padding: 8px 0 22px; }
+  .token { height: 34px; font-size: 14px; line-height: 32px; }
+}
+
+@media (max-width: 1080px) {
+  :root { --side: 252px; --name-column: 136px; --read-column: 200px; }
+  .read, .read-head { grid-template-columns: 54px 1fr 64px; }
+  .draft-block { padding-right: 20px; padding-left: 20px; }
+  .text { font-size: 11px; line-height: 16px; }
+  .step { min-width: 0; }
+  .token { height: 34px; font-size: 14px; line-height: 32px; }
+  .tokens { gap: 24px 4px; }
+}
+
 </style>
 </head>
 <body>
-<div class="page">
-  <header class="hero">
-    <p class="eyebrow">Speculative decoding on one laptop</p>
-    <h1>A small model drafts.<br>The large model checks.</h1>
-    <p class="lede">The output has the same probabilities as the large model alone, and it arrives
-    faster when the draft is good. A controller picks how far to draft before each check.</p>
-    <p class="recorded" id="provenance"></p>
+<div class="shell">
+  <header class="topbar">
+    <a class="quiet back" href="https://www.qendrimbeka.com/">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back
+    </a>
+    <nav aria-label="More about Speculative Decoding">
+      <a class="quiet" href="https://github.com/qbeka/speculative-decoding">GitHub</a>
+    </nav>
   </header>
 
-  <svg class="ridge" id="ridge" viewBox="0 0 1000 170" preserveAspectRatio="none" aria-hidden="true"></svg>
-
-  <dl class="stats" id="stats"></dl>
-
   <main>
-    <section aria-labelledby="replay-title">
-      <h2 id="replay-title">One prompt, three decoders</h2>
-      <p class="note">This plays back real timestamps from the recorded run. Nothing runs in your
-      browser. Rejected drafts never reach the output. Both speculative decoders here use the 8-layer distilled draft.</p>
+    <header class="title">
+      <h1>Speculative Decoding</h1>
+      <p>Draft a few tokens and check them together</p>
+    </header>
 
-      <div class="controls">
-        <button class="pill" id="play" type="button">Play</button>
-        <select class="field" id="trace" aria-label="Recorded prompt"></select>
-        <select class="field" id="speed" aria-label="Playback speed">
-          <option value="0.25">Quarter speed</option>
-          <option value="1" selected>Real time</option>
-        </select>
-      </div>
-      <div class="scrub-row">
-        <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Replay position">
-        <span class="clock" id="clock"></span>
+    <section class="stage" id="stage" aria-label="Recorded replay of three decoders">
+      <noscript><p class="prose">The replay needs JavaScript. The details below still work.</p></noscript>
+      <div class="bar">
+        <div class="switch" role="group" aria-label="Kind of text" id="cases"></div>
+        <span class="divider" aria-hidden="true"></span>
+        <select class="picker" id="prompt" aria-label="Recorded prompt"></select>
+        <span class="mode">Recorded<span class="wide"> replay</span></span>
       </div>
 
-      <div class="columns" id="columns"></div>
+      <div class="work">
+        <section class="side input" id="input" aria-labelledby="input-name">
+          <h2 id="input-name"></h2>
+          <p class="task" id="task"></p>
+          <pre class="text" id="source" tabindex="0" aria-labelledby="input-name"></pre>
+        </section>
 
-      <ul class="key">
-        <li><i class="k-draft"></i>Drafted, then accepted</li>
-        <li><i class="k-target"></i>Sampled by the large model</li>
-        <li><i class="k-corrected"></i>Resampled after a rejection</li>
-      </ul>
-      <details class="prompt">
-        <summary>Show the prompt</summary>
-        <pre id="prompt"></pre>
-      </details>
+        <section class="draft-block" aria-labelledby="draft-title">
+          <header class="draft-head">
+            <h2 id="draft-title"></h2>
+            <p id="draft-status"></p>
+          </header>
+          <div class="token-room"><ol class="tokens" id="tokens"></ol></div>
+          <p class="note" id="note"></p>
+          <dl class="ledger">
+            <div><dt>Proposed</dt><dd id="proposed"></dd></div>
+            <div><dt>Accepted</dt><dd id="accepted"></dd></div>
+            <div><dt>Rejected</dt><dd id="rejected"></dd></div>
+            <div><dt>Next draft</dt><dd id="next-length"></dd></div>
+          </dl>
+        </section>
+
+        <section class="side output" aria-labelledby="output-name">
+          <h2 id="output-name">Output, <span id="output-arm"></span></h2>
+          <div class="text" id="output" tabindex="0" aria-labelledby="output-name"></div>
+          <p class="caption">Each decoder sampled its own text, so the three outputs differ.</p>
+        </section>
+      </div>
+
+      <div class="transport">
+        <button class="control primary" id="play" type="button">
+          <span class="on" data-label="play">Play</span><span data-label="pause">Pause</span><span data-label="again">Replay</span>
+        </button>
+        <button class="control outline step" id="prev" type="button"><span class="full" data-step="Previous">Previous draft</span><span class="brief">Previous</span></button>
+        <button class="control outline step" id="next" type="button"><span class="full" data-step="Next">Next draft</span><span class="brief">Next</span></button>
+        <button class="control reset" id="reset" type="button">Reset</button>
+      </div>
+      <div class="speed" role="group" aria-label="Replay speed" id="speeds"><span aria-hidden="true">Speed</span></div>
+
+      <div class="lanes" id="lanes">
+        <div class="axis" aria-hidden="true"><span>0 s</span><span id="axis-end"></span></div>
+        <div class="read-head" aria-hidden="true"><span>Clock</span><span>Tokens</span><span>Final<span class="wide"> rate</span></span></div>
+        <div id="scrub" role="slider" tabindex="0" aria-label="Replay position" aria-valuemin="0">
+          <svg aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 1000 300">
+            <defs><clipPath id="elapsed"><rect id="elapsed-rect" x="0" y="0" width="0" height="300"/></clipPath></defs>
+            <g id="stems-ahead"></g>
+            <g id="stems-past" clip-path="url(#elapsed)"></g>
+          </svg>
+          <div class="playhead" id="playhead"><i></i></div>
+        </div>
+      </div>
+
+      <div class="compare">
+        <p id="compare"></p>
+        <ul class="key" aria-label="Key to the stems">
+          <li><i class="k-kept"></i>Accepted</li>
+          <li><i class="k-lost"></i>Thrown out</li>
+          <li><i class="k-plain"></i>Large model only</li>
+        </ul>
+      </div>
+      <p class="sr-only" role="status" id="status"></p>
     </section>
 
-    <section aria-labelledby="blocks-title">
-      <h2 id="blocks-title">Each draft, and what survived</h2>
-      <p class="note">Every stem is one verification. Its height is the draft length. Green was
-      accepted and clay was thrown away. Select any stem on the adaptive line to see why that
-      length was chosen.</p>
-      <div id="lanes"></div>
-      <div class="why" id="why"></div>
-    </section>
-
-    <section aria-labelledby="evidence-title" id="evidence-section">
-      <h2 id="evidence-title">Why you can trust this</h2>
-      <ul class="claims" id="claims"></ul>
-    </section>
   </main>
-
-  <footer id="footer"></footer>
 </div>
 
 <script id="data" type="application/json">__DATA__</script>
 <script>
-const DATA = JSON.parse(document.getElementById("data").textContent);
+const DATA = JSON.parse(document.getElementById('data').textContent);
 const $ = (id) => document.getElementById(id);
-const SVG = "http://www.w3.org/2000/svg";
-const svg = (name, attributes = {}, parent = null) => {
-  const node = document.createElementNS(SVG, name);
-  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-  if (parent) parent.append(node);
-  return node;
-};
-const element = (name, text, parent = null) => {
-  const node = document.createElement(name);
-  if (text !== undefined) node.textContent = text;
-  if (parent) parent.append(node);
-  return node;
-};
+const SVG = 'http://www.w3.org/2000/svg';
+const SPEEDS = [[0.1, '1/10'], [0.25, '1/4'], [1, '1x']];
+const STRIP = 100;
 
-let trace = DATA.traces[0];
-let now = 0;
-let playing = false;
+const motion = matchMedia('(prefers-reduced-motion: reduce)');
+const state = { caseIndex: 0, traceIndex: 0, armIndex: 2, t: 0, speed: SPEEDS[0][0], playing: false };
+let trace = null;
+let total = 1;
 let lastFrame = 0;
-let selected = null;
+let drawn = {};
 
-function ms(seconds) { return `${(1000 * seconds).toFixed(1)} ms`; }
-function duration() { return Math.max(...trace.arms.map((arm) => arm.wall_s)); }
-function adaptiveArm() { return trace.arms.find((arm) => arm.decisions); }
-function expected(acceptance, k) {
-  let tokens = 0;
-  for (let i = 0; i <= k; i += 1) tokens += acceptance ** i;
-  return tokens;
-}
-function blockSeconds(decision, k) {
-  return k === 0 ? decision.verify_one_s
-    : k * decision.draft_pass_s + decision.verify_one_s + k * decision.verify_per_token_s;
-}
+const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-/* A smooth path through evenly spaced samples, in the ridge's 1000 by 170 box. */
-function smoothPath(samples, base, amplitude) {
-  const points = samples.map((value, index) => [
-    (index / Math.max(1, samples.length - 1)) * 1000,
-    base - value * amplitude,
-  ]);
-  let path = `M${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const [p0, p1, p2, p3] = [points[Math.max(0, i - 1)], points[i], points[i + 1],
-      points[Math.min(points.length - 1, i + 2)]];
-    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
-    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-    path += `C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+/* Spaces and line breaks are part of a token, so they have to be visible.
+   A draft can also propose part of a character, which has no glyph of its own. */
+function show(text) {
+  if (text === '<|im_end|>') return 'end';
+  return text.replace(/\n/g, '↵').replace(/ /g, '·').replace(/�/g, 'byte');
+}
+const quoted = (text) => `"${show(text)}"`;
+
+/* Count the entries whose time has passed. Both lists are in time order. */
+function passed(list, read, t) {
+  let low = 0;
+  let high = list.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (read(list[middle]) <= t) low = middle + 1;
+    else high = middle;
   }
-  return path;
+  return low;
+}
+const blocksDone = (arm, t) => passed(arm.blocks, (b) => b.end_s, t);
+const tokensDone = (arm, t) => passed(arm.tokens, (k) => k.t, t);
+const selectedArm = () => trace.arms[state.armIndex];
+const hasDrafts = (arm) => arm.blocks.some((block) => block.draft.length > 0);
+const rate = (arm) => arm.tokens.length / arm.wall_s;
+
+function setText(node, text) {
+  if (node.textContent !== text) node.textContent = text;
+}
+function announce(text) {
+  $('status').textContent = text;
+}
+function setDisabled(node, disabled) {
+  node.setAttribute('aria-disabled', String(disabled));
 }
 
-/* The ridge is real data: this recording's draft lengths, softened by the
-   acceptance estimate. Each echo keeps less of the shape, like a line going still. */
-function drawRidge() {
-  const canvas = $("ridge");
-  canvas.replaceChildren();
-  const arm = adaptiveArm();
-  if (!arm) return;
-  const raw = arm.decisions.map((d) => d.chosen * (0.4 + d.acceptance));
-  const low = Math.min(...raw);
-  const span = Math.max(1e-6, Math.max(...raw) - low);
-  const samples = raw.map((value) => (value - low) / span);
-  const echoes = [[1, 0.5], [0.72, 0.34], [0.48, 0.22], [0.28, 0.14], [0.12, 0.09]];
-  echoes.forEach(([keep, opacity], index) => {
-    const path = svg("path", {
-      d: smoothPath(samples, 132 + index * 8, 118 * keep),
-      opacity,
-      pathLength: 1,
-    }, canvas);
-    path.style.animationDelay = `${index * 0.18}s`;
-  });
+/* The draft in view is the last one checked. Before the first check it is the first draft. */
+function draftInView() {
+  const arm = selectedArm();
+  const done = blocksDone(arm, state.t);
+  return { arm, index: Math.max(0, done - 1), checked: done > 0 };
 }
 
-function buildColumns() {
-  const columns = $("columns");
-  columns.replaceChildren();
-  for (const arm of trace.arms) {
-    const box = element("article", undefined, columns);
-    box.className = "arm";
-    element("h3", arm.label, box);
-    arm.rateNode = element("span", "", box);
-    arm.rateNode.className = "rate";
-    arm.countNode = element("span", "", box);
-    arm.countNode.className = "count";
-    const bar = element("div", undefined, box);
-    bar.className = "bar";
-    arm.barNode = element("i", undefined, bar);
-    arm.outputNode = element("div", undefined, box);
-    arm.outputNode.className = "output";
-    arm.outputNode.tabIndex = 0;
-    arm.outputNode.setAttribute("aria-label", `${arm.label} output`);
-    arm.spans = arm.tokens.map((token) => {
-      const span = element("span", token.text, arm.outputNode);
-      span.className = token.source;
-      span.hidden = true;
-      return span;
-    });
+function token(text, stateName, words) {
+  const item = document.createElement('li');
+  item.className = 'token';
+  if (stateName) item.dataset.state = stateName;
+  const hidden = document.createElement('span');
+  hidden.className = 'sr-only';
+  hidden.textContent = `${words} `;
+  item.append(hidden, show(text));
+  return item;
+}
+
+function fillLedger(values) {
+  for (const [id, text, tone, small] of values) {
+    const node = $(id);
+    node.className = tone || '';
+    node.textContent = text;
+    if (small) {
+      const detail = document.createElement('small');
+      detail.textContent = small;
+      node.append(detail);
+    }
   }
 }
 
-function buildLanes() {
-  const lanes = $("lanes");
-  lanes.replaceChildren();
-  const total = duration();
-  const tallest = Math.max(1, ...trace.arms.flatMap((arm) => arm.blocks.map((b) => b.drafted)));
-  const height = 72;
-  for (const arm of trace.arms) {
-    if (!arm.blocks.length) continue;
-    const lane = element("div", undefined, lanes);
-    lane.className = "lane";
-    const head = element("div", undefined, lane);
-    head.className = "lane-head";
-    element("b", arm.label, head);
-    const readout = element("span", `${arm.blocks.length} verifications`, head);
-    const canvas = svg("svg", { viewBox: `0 0 1000 ${height}`, preserveAspectRatio: "none",
-      role: "img", "aria-label": `${arm.label}: drafts over time` }, lane);
-    svg("line", { x1: 0, x2: 1000, y1: height - .5, y2: height - .5, class: "baseline" }, canvas);
-    arm.stems = arm.blocks.map((block, index) => {
-      const group = svg("g", {}, canvas);
-      const x = ((block.start_s + block.end_s) / 2 / total) * 1000;
-      const unit = (height - 6) / tallest;
-      const keptTop = height - 1 - unit * block.accepted;
-      const allTop = height - 1 - unit * block.drafted;
-      if (block.drafted === 0) {
-        svg("line", { x1: x, x2: x, y1: height - 1, y2: height - 7, class: "stem-none" }, group);
-      }
-      if (block.accepted) {
-        svg("line", { x1: x, x2: x, y1: height - 1, y2: keptTop, class: "stem-kept" }, group);
-      }
-      if (block.drafted > block.accepted) {
-        svg("line", { x1: x, x2: x, y1: keptTop, y2: allTop, class: "stem-lost" }, group);
-      }
-      const left = (block.start_s / total) * 1000;
-      const right = (block.end_s / total) * 1000;
-      const hit = svg("rect", { x: left, y: 0, width: Math.max(4, right - left), height, class: "hit" }, canvas);
-      hit.addEventListener("mouseenter", () => {
-        readout.textContent = `Block ${index + 1}: drafted ${block.drafted}, accepted ${block.accepted}, ${ms(block.end_s - block.start_s)}`;
-      });
-      hit.addEventListener("mouseleave", () => {
-        readout.textContent = `${arm.blocks.length} verifications`;
-      });
-      hit.addEventListener("click", () => showBlock(arm, index));
-      return group;
-    });
-    arm.playhead = svg("line", { y1: 0, y2: height, class: "playhead" }, canvas);
+function nextLength(arm, index) {
+  const next = arm.blocks[index + 1];
+  if (!next) return ['next-length', 'None', '', 'The reply is finished'];
+  const length = next.draft.length;
+  if (!arm.acceptance) {
+    return ['next-length', plural(length, 'token'), '', length === 12 ? 'Always 12' : 'This draft ended the text'];
   }
+  const [from, to] = [arm.acceptance[index], arm.acceptance[index + 1]];
+  return ['next-length', plural(length, 'token'), '', `Estimated acceptance ${from.toFixed(2)} to ${to.toFixed(2)}`];
 }
 
-function reasonFor(decision, previous) {
-  const estimate = decision.acceptance.toFixed(2);
-  if (!previous) return `This is the first draft, so the estimate starts from its prior of ${estimate}.`;
-  if (decision.chosen < previous.chosen) {
-    return `Shortened from ${previous.chosen} to ${decision.chosen}. Estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}, so the extra draft tokens stopped paying for themselves.`;
+function verdictNote(block) {
+  const size = block.draft.length;
+  const kept = block.accepted;
+  const at = block.rejected_at;
+  if (at === null) {
+    return `The large model kept all ${size} and wrote one more token, ${quoted(block.written)}, from the same pass.`;
   }
-  if (decision.chosen > previous.chosen) {
-    return `Lengthened from ${previous.chosen} to ${decision.chosen}. Estimated acceptance moved from ${previous.acceptance.toFixed(2)} to ${estimate}, so a longer draft is worth its cost.`;
-  }
-  return `Kept at ${decision.chosen}. Estimated acceptance is ${estimate}, and no other length is expected to be faster.`;
+  const opening = at === 0
+    ? `The large model rejected the first token, ${quoted(block.draft[0])},`
+    : `The large model kept ${kept} of ${size}, rejected ${quoted(block.draft[at])}`;
+  const unused = size - at - 1;
+  const rest = unused === 1 ? 'token' : `${unused} tokens`;
+  const after = unused ? `, so the ${rest} after it went unused` : '';
+  return `${opening} and wrote ${quoted(block.written)} there instead${after}.`;
 }
 
-function drawCurve(parent, decision) {
-  const width = 460;
-  const height = 190;
-  const left = 8;
-  const bottom = 26;
-  const top = 26;
-  const rates = [];
-  for (let k = 0; k <= DATA.max_block_length; k += 1) {
-    rates.push(expected(decision.acceptance, k) / blockSeconds(decision, k));
-  }
-  const peak = Math.max(...rates);
-  const x = (k) => left + (k / DATA.max_block_length) * (width - left * 2);
-  const y = (rate) => height - bottom - (rate / peak) * (height - bottom - top);
-  const canvas = svg("svg", { viewBox: `0 0 ${width} ${height}`, role: "img",
-    "aria-label": `Expected tokens per second for each draft length. The controller chose ${decision.chosen}.` }, parent);
-  svg("line", { x1: left, x2: width - left, y1: height - bottom, y2: height - bottom, class: "grid-line" }, canvas);
-  const points = rates.map((rate, k) => `${x(k).toFixed(1)},${y(rate).toFixed(1)}`).join(" ");
-  svg("polyline", { points, class: "curve" }, canvas);
-  const chosenRate = rates[decision.chosen];
-  svg("circle", { cx: x(decision.chosen), cy: y(chosenRate), r: 5, class: "chosen-dot" }, canvas);
-  const anchor = decision.chosen > DATA.max_block_length * 0.75 ? "end" : "middle";
-  const label = svg("text", { x: x(decision.chosen), y: y(chosenRate) - 12, "text-anchor": anchor, class: "value" }, canvas);
-  label.textContent = `length ${decision.chosen}, ${chosenRate.toFixed(0)} tokens/s`;
-  for (const k of [0, DATA.max_block_length]) {
-    const tick = svg("text", { x: x(k), y: height - 8, "text-anchor": k ? "end" : "start" }, canvas);
-    tick.textContent = k ? `draft length ${k}` : "0";
-  }
+/* The replacement hangs under the rejected token. Near the edge it hangs the other way. */
+function placeWritten(row) {
+  const label = row.querySelector('.written');
+  if (!label) return;
+  const chip = label.parentElement;
+  chip.classList.remove('flip');
+  const overflows = label.getBoundingClientRect().right > row.getBoundingClientRect().right;
+  chip.classList.toggle('flip', overflows);
 }
 
-function showBlock(arm, index) {
-  for (const candidate of trace.arms) {
-    if (candidate.stems) candidate.stems.forEach((stem) => stem.classList.remove("selected"));
-  }
-  arm.stems[index].classList.add("selected");
-  selected = { arm, index };
-
-  const why = $("why");
-  why.replaceChildren();
+function drawPass(arm, index, checked) {
   const block = arm.blocks[index];
-  const decision = arm.decisions && arm.decisions[index];
-  const words = element("div", undefined, why);
-  element("h3", `Block ${index + 1} of ${arm.blocks.length}`, words);
-  const rejected = block.rejected_at === null
-    ? "Every drafted token was accepted."
-    : `Drafted token ${block.rejected_at + 1} (${JSON.stringify(block.rejected_text)}) was rejected and resampled.`;
-  element("p", `Drafted ${block.drafted}, accepted ${block.accepted}, delivered ${block.delivered} in ${ms(block.end_s - block.start_s)}. ${rejected}`, words);
-  if (!decision) {
-    element("p", `${arm.label} always uses the same length, so there is no decision to explain.`, words);
+  setText($('draft-title'), `Pass ${index + 1} of ${arm.blocks.length}`);
+  setText($('draft-status'), checked ? `Took ${Math.round(block.check_ms)} ms` : 'Not run yet');
+  $('tokens').replaceChildren(token(block.written, checked ? 'written' : '', 'large model wrote'));
+  setText($('note'), 'This decoder has no draft. Each pass of the large model writes one token.');
+  fillLedger([
+    ['proposed', 'None', 'waiting'],
+    ['accepted', 'None', 'waiting'],
+    ['rejected', 'None', 'waiting'],
+    ['next-length', 'None', 'waiting', 'One token per pass'],
+  ]);
+}
+
+function drawDraft(arm, index, checked) {
+  const block = arm.blocks[index];
+  const at = block.rejected_at;
+  const row = $('tokens');
+  setText($('draft-title'), `Draft ${index + 1} of ${arm.blocks.length}`);
+  setText($('draft-status'), checked
+    ? `Drafted in ${Math.round(block.draft_ms)} ms, checked in ${Math.round(block.check_ms)} ms`
+    : 'Not checked yet');
+
+  const items = block.draft.map((text, position) => {
+    if (!checked) return token(text, '', 'proposed');
+    if (position < block.accepted) return token(text, 'kept', 'accepted');
+    if (position === at) {
+      const item = token(text, 'rejected', 'rejected');
+      const written = document.createElement('span');
+      written.className = 'written';
+      written.textContent = show(block.written);
+      item.append(written);
+      return item;
+    }
+    return token(text, 'unused', 'unused');
+  });
+  if (at === null) {
+    const extra = token(block.written, 'written', 'large model wrote');
+    if (!checked) extra.style.visibility = 'hidden';
+    items.push(extra);
+  }
+  row.replaceChildren(...items);
+  placeWritten(row);
+
+  if (!checked) {
+    setText($('note'), `One pass of the large model will check these ${plural(block.draft.length, 'token')} together.`);
+    fillLedger([
+      ['proposed', plural(block.draft.length, 'token')],
+      ['accepted', 'Waiting', 'waiting'],
+      ['rejected', 'Waiting', 'waiting'],
+      ['next-length', 'Waiting', 'waiting', 'Set after the check'],
+    ]);
     return;
   }
-  element("p", reasonFor(decision, index > 0 ? arm.decisions[index - 1] : null), words);
-  const picture = element("div", undefined, why);
-  drawCurve(picture, decision);
+  setText($('note'), verdictNote(block));
+  fillLedger([
+    ['proposed', plural(block.draft.length, 'token')],
+    ['accepted', plural(block.accepted, 'token'), block.accepted ? 'kept' : ''],
+    ['rejected', at === null ? 'None' : `Token ${at + 1}`, at === null ? '' : 'lost'],
+    nextLength(arm, index),
+  ]);
+}
 
-  const details = element("details", undefined, why);
-  details.className = "numbers";
-  element("summary", "See the numbers", details);
-  const wrap = element("div", undefined, details);
-  wrap.className = "table-wrap";
-  const table = element("table", undefined, wrap);
-  const head = table.insertRow();
-  for (const name of ["Draft length", "Expected tokens", "Expected time", "Expected tokens/s"]) {
-    element("th", name, head);
-  }
-  const low = Math.max(0, decision.chosen - 3);
-  const high = Math.min(DATA.max_block_length, decision.chosen + 3);
-  for (let k = low; k <= high; k += 1) {
-    const tokens = expected(decision.acceptance, k);
-    const seconds = blockSeconds(decision, k);
-    const row = table.insertRow();
-    if (k === decision.chosen) row.className = "picked";
-    for (const value of [k, tokens.toFixed(2), ms(seconds), (tokens / seconds).toFixed(1)]) {
-      row.insertCell().textContent = value;
-    }
+function paintDraft() {
+  const { arm, index, checked } = draftInView();
+  const key = `${state.caseIndex}/${state.traceIndex}/${state.armIndex}/${index}/${checked}`;
+  if (drawn.draft === key) return;
+  const fresh = drawn.draftBlock !== `${state.caseIndex}/${state.traceIndex}/${state.armIndex}/${index}`;
+  drawn.draft = key;
+  drawn.draftBlock = `${state.caseIndex}/${state.traceIndex}/${state.armIndex}/${index}`;
+  if (hasDrafts(arm)) drawDraft(arm, index, checked);
+  else drawPass(arm, index, checked);
+  if (fresh && state.playing && state.speed < 1 && !motion.matches) {
+    $('tokens').animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 120, easing: 'ease-out' });
   }
 }
 
-function firstShortened(arm) {
-  const index = arm.decisions.findIndex((d, i) => i > 0 && d.chosen < arm.decisions[i - 1].chosen);
-  return Math.max(0, index);
+function paintOutput() {
+  const arm = selectedArm();
+  const count = tokensDone(arm, state.t);
+  const spans = $('output').children;
+  const before = drawn.output;
+  if (before === count) return;
+  for (let i = Math.min(before, count); i < Math.max(before, count); i += 1) {
+    spans[i].hidden = i >= count;
+  }
+  drawn.output = count;
+  if (count > before) $('output').scrollTop = $('output').scrollHeight;
 }
 
-function render() {
-  const total = duration();
-  for (const arm of trace.arms) {
-    let shown = 0;
-    arm.tokens.forEach((token, index) => {
-      const visible = token.t <= now;
-      if (visible) shown += 1;
-      arm.spans[index].hidden = !visible;
-    });
-    const elapsed = Math.min(now, arm.wall_s);
-    arm.rateNode.textContent = elapsed > 0.05 ? `${(shown / elapsed).toFixed(1)} tokens/s` : "0 tokens/s";
-    arm.countNode.textContent = `${shown} of ${arm.tokens.length} tokens, ${elapsed.toFixed(2)} s`;
-    arm.barNode.style.width = `${(100 * shown) / Math.max(1, arm.tokens.length)}%`;
-    if (playing) arm.outputNode.scrollTop = arm.outputNode.scrollHeight;
-    if (arm.playhead) {
-      const x = (now / total) * 1000;
-      arm.playhead.setAttribute("x1", x);
-      arm.playhead.setAttribute("x2", x);
-      arm.playhead.style.opacity = now > 0 && now < total ? 1 : 0;
-    }
-  }
-  $("clock").textContent = `${now.toFixed(2)} of ${total.toFixed(2)} s`;
-  $("scrub").value = Math.round((now / total) * 1000);
+function paintLanes() {
+  trace.arms.forEach((arm, index) => {
+    const elapsed = Math.min(state.t, arm.wall_s);
+    const read = drawn.reads[index];
+    setText(read.clock, `${elapsed.toFixed(2)} s`);
+    setText(read.count, `${tokensDone(arm, state.t)} of ${arm.tokens.length}`);
+    read.row.classList.toggle('done', state.t >= arm.wall_s);
+  });
+  const share = state.t / total;
+  $('elapsed-rect').setAttribute('width', (share * 1000).toFixed(2));
+  $('playhead').style.transform = `translateX(${(share * 100).toFixed(3)}%)`;
+  const scrub = $('scrub');
+  scrub.setAttribute('aria-valuenow', state.t.toFixed(2));
+  scrub.setAttribute('aria-valuetext', `${state.t.toFixed(2)} of ${total.toFixed(2)} seconds`);
 }
 
-function frame(timestamp) {
-  if (!playing) return;
-  now += ((timestamp - lastFrame) / 1000) * Number($("speed").value);
-  lastFrame = timestamp;
-  if (now >= duration()) {
-    now = duration();
-    setPlaying(false);
+function paintControls() {
+  const finished = state.t >= total;
+  const name = state.playing ? 'pause' : finished ? 'again' : 'play';
+  for (const label of $('play').children) label.classList.toggle('on', label.dataset.label === name);
+  const arm = selectedArm();
+  const done = blocksDone(arm, state.t);
+  setDisabled($('prev'), state.t === 0);
+  setDisabled($('next'), done >= arm.blocks.length);
+  setDisabled($('reset'), state.t === 0 && !state.playing);
+  const unit = hasDrafts(arm) ? 'draft' : 'pass';
+  for (const node of document.querySelectorAll('[data-step]')) {
+    setText(node, `${node.dataset.step === 'Previous' ? 'Previous' : 'Next'} ${unit}`);
   }
-  render();
-  if (playing) requestAnimationFrame(frame);
+  $('prev').setAttribute('aria-label', `Previous ${unit}`);
+  $('next').setAttribute('aria-label', `Next ${unit}`);
+}
+
+function paint() {
+  paintDraft();
+  paintOutput();
+  paintLanes();
+  paintControls();
+}
+
+function describeDraft() {
+  const { arm, index, checked } = draftInView();
+  const block = arm.blocks[index];
+  if (!hasDrafts(arm)) return `Pass ${index + 1} of ${arm.blocks.length}.`;
+  if (!checked) return `Draft 1 of ${arm.blocks.length}, ${plural(block.draft.length, 'token')} proposed, not checked yet.`;
+  const next = arm.blocks[index + 1];
+  const length = next ? ` Next draft ${plural(next.draft.length, 'token')}.` : ' The reply is finished.';
+  return `Draft ${index + 1} of ${arm.blocks.length}. Accepted ${block.accepted} of ${block.draft.length}.${length}`;
 }
 
 function setPlaying(value) {
-  playing = value;
-  $("play").textContent = value ? "Pause" : "Play";
+  state.playing = value;
   if (value) {
     lastFrame = performance.now();
     requestAnimationFrame(frame);
   }
 }
 
-function load(index) {
-  trace = DATA.traces[index];
-  setPlaying(false);
-  now = duration();
-  buildColumns();
-  buildLanes();
-  drawRidge();
-  $("prompt").textContent = trace.prompt;
-  const arm = adaptiveArm();
-  showBlock(arm, firstShortened(arm));
-  render();
+function seek(t) {
+  state.t = Math.min(total, Math.max(0, t));
 }
 
-function buildStatic() {
-  $("provenance").textContent = DATA.provenance;
-  for (const item of DATA.headline) {
-    const box = element("div", undefined, $("stats"));
-    box.className = "stat";
-    element("b", item.value, box);
-    element("span", item.label, box);
-  }
-  if (!DATA.headline.length) $("stats").remove();
-  for (const claim of DATA.claims) {
-    const row = element("li", undefined, $("claims"));
-    element("b", claim.title, row);
-    element("span", claim.text, row);
-  }
-  if (!DATA.claims.length) $("evidence-section").remove();
-  for (const line of DATA.footer) element("p", line, $("footer"));
-  DATA.traces.forEach((item, index) => $("trace").add(new Option(item.label, index)));
+function frame(now) {
+  if (!state.playing) return;
+  const seconds = Math.min(now - lastFrame, 100) / 1000;
+  lastFrame = now;
+  seek(state.t + seconds * state.speed);
+  if (state.t >= total) setPlaying(false);
+  paint();
+  if (state.playing) requestAnimationFrame(frame);
 }
 
-$("play").addEventListener("click", () => {
-  if (!playing && now >= duration()) now = 0;
-  setPlaying(!playing);
-});
-$("scrub").addEventListener("input", (event) => {
+function stepTo(t) {
   setPlaying(false);
-  now = (Number(event.target.value) / 1000) * duration();
-  render();
-});
-$("trace").addEventListener("change", (event) => load(Number(event.target.value)));
-buildStatic();
-load(0);
+  seek(t);
+  paint();
+  announce(describeDraft());
+}
+
+function stepForward() {
+  const arm = selectedArm();
+  const next = arm.blocks[blocksDone(arm, state.t)];
+  if (next) stepTo(next.end_s);
+}
+
+function stepBack() {
+  if (state.t === 0) return;
+  const arm = selectedArm();
+  const done = blocksDone(arm, state.t);
+  const onCheck = done > 0 && arm.blocks[done - 1].end_s === state.t;
+  const target = onCheck ? done - 2 : done - 1;
+  stepTo(target >= 0 ? arm.blocks[target].end_s : 0);
+}
+
+function stems(arm) {
+  const tallest = Math.max(1, ...trace.arms.flatMap((one) => one.blocks.map((b) => b.draft.length)));
+  const unit = (STRIP - 16) / tallest;
+  return arm.blocks.map((block) => ({
+    x: ((block.end_s / total) * 1000).toFixed(2),
+    kept: block.accepted * unit,
+    lost: (block.draft.length - block.accepted) * unit,
+    plain: block.draft.length ? 0 : 10,
+  }));
+}
+
+function strip(parent, className, d) {
+  const path = document.createElementNS(SVG, 'path');
+  path.setAttribute('class', className);
+  path.setAttribute('d', d);
+  parent.append(path);
+}
+
+function drawLanes() {
+  const ahead = $('stems-ahead');
+  const past = $('stems-past');
+  ahead.replaceChildren();
+  past.replaceChildren();
+  trace.arms.forEach((arm, index) => {
+    const floor = STRIP * (index + 1) - 5;
+    const list = stems(arm);
+    const line = (from, height) => (stem) => (height(stem) > 0
+      ? `M${stem.x} ${(floor - from(stem)).toFixed(2)}v${(-height(stem)).toFixed(2)}` : '');
+    const all = line(() => 0, (stem) => stem.kept + stem.lost + stem.plain);
+    const finish = ((arm.wall_s / total) * 1000).toFixed(2);
+    strip(ahead, 'ground', `M0 ${floor + 0.5}H${finish}`);
+    strip(ahead, 'ahead', list.map(all).join(''));
+    strip(past, 'stem-kept', list.map(line(() => 0, (stem) => stem.kept)).join(''));
+    strip(past, 'stem-lost', list.map(line((stem) => stem.kept, (stem) => stem.lost)).join(''));
+    strip(past, 'stem-plain', list.map(line(() => 0, (stem) => stem.plain)).join(''));
+    strip(past, 'finish', `M${finish} ${floor + 3}v-14`);
+  });
+  $('axis-end').textContent = `${total.toFixed(2)} s`;
+  $('scrub').setAttribute('aria-valuemax', total.toFixed(2));
+}
+
+function drawReads() {
+  trace.arms.forEach((arm, index) => {
+    const read = drawn.reads[index];
+    read.total.textContent = `${rate(arm).toFixed(1)}/s`;
+  });
+}
+
+function comparison(ratio, name) {
+  const value = document.createElement('b');
+  value.textContent = `${ratio.toFixed(2)}x`;
+  if (ratio < 1) value.className = 'loss';
+  return [`${ratio < 1 ? 'slower' : 'faster'} than ${name} at `, value];
+}
+
+function drawCompare() {
+  const [alone, fixed, adaptive] = trace.arms;
+  $('compare').replaceChildren(
+    'On this recording Adaptive ran ',
+    ...comparison(rate(adaptive) / rate(fixed), fixed.label),
+    ' and ',
+    ...comparison(rate(adaptive) / rate(alone), 'the large model alone'),
+  );
+}
+
+function drawOutput() {
+  const nodes = selectedArm().tokens.map((item) => {
+    const span = document.createElement('span');
+    span.className = item.source;
+    span.textContent = item.text;
+    span.hidden = true;
+    return span;
+  });
+  $('output').replaceChildren(...nodes);
+  $('output').scrollTop = 0;
+  drawn.output = 0;
+  setText($('output-arm'), selectedArm().label);
+}
+
+function loadTrace() {
+  setPlaying(false);
+  trace = DATA.cases[state.caseIndex].traces[state.traceIndex];
+  total = Math.max(...trace.arms.map((arm) => arm.wall_s));
+  state.t = 0;
+  const receipt = Boolean(trace.task);
+  $('input').dataset.kind = receipt ? 'receipt' : 'prompt';
+  setText($('input-name'), receipt ? 'Receipt' : 'Prompt');
+  setText($('task'), trace.task);
+  $('task').hidden = !receipt;
+  setText($('source'), trace.source);
+  $('source').scrollTop = 0;
+  drawn.draft = null;
+  drawn.draftBlock = null;
+  drawOutput();
+  drawLanes();
+  drawReads();
+  drawCompare();
+  paint();
+}
+
+function selectCase(index) {
+  state.caseIndex = index;
+  state.traceIndex = 0;
+  for (const button of $('cases').children) {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.index) === index));
+  }
+  const picker = $('prompt');
+  picker.replaceChildren(...DATA.cases[index].traces.map((item, position) => new Option(item.label, position)));
+  loadTrace();
+  announce(`${DATA.cases[index].name}: ${trace.label}. ${describeDraft()}`);
+}
+
+function selectArm(index) {
+  state.armIndex = index;
+  for (const [position, read] of drawn.reads.entries()) {
+    read.name.setAttribute('aria-pressed', String(position === index));
+  }
+  drawn.draft = null;
+  drawn.draftBlock = null;
+  drawOutput();
+  paint();
+  announce(`Following ${selectedArm().label}. ${describeDraft()}`);
+}
+
+function buildControls() {
+  DATA.cases.forEach((item, index) => {
+    const button = document.createElement('button');
+    button.className = 'control';
+    button.type = 'button';
+    button.textContent = item.name;
+    button.dataset.index = index;
+    button.addEventListener('click', () => selectCase(index));
+    $('cases').append(button);
+  });
+  for (const [value, label] of SPEEDS) {
+    const button = document.createElement('button');
+    button.className = 'control';
+    button.type = 'button';
+    button.textContent = label;
+    button.setAttribute('aria-pressed', String(value === state.speed));
+    button.setAttribute('aria-label', value === 1 ? 'Real time' : `${label} speed`);
+    button.addEventListener('click', () => {
+      state.speed = value;
+      for (const other of $('speeds').querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === button));
+      }
+    });
+    $('speeds').append(button);
+  }
+  drawn.reads = DATA.cases[0].traces[0].arms.map((arm, index) => {
+    const row = document.createElement('div');
+    row.className = 'lane-row';
+    const name = document.createElement('button');
+    name.className = 'control lane-name';
+    name.type = 'button';
+    name.textContent = arm.label;
+    name.setAttribute('aria-pressed', 'false');
+    name.setAttribute('aria-label', `Follow ${arm.label}`);
+    name.style.gridRow = index + 2;
+    name.addEventListener('click', () => selectArm(index));
+    const read = document.createElement('div');
+    read.className = 'read';
+    read.style.gridRow = index + 2;
+    const clock = document.createElement('b');
+    const count = document.createElement('span');
+    const final = document.createElement('span');
+    read.append(clock, count, final);
+    row.append(name, read);
+    $('lanes').append(row);
+    return { name, row: read, clock, count, total: final };
+  });
+}
+
+function positionFromPointer(event) {
+  const box = $('scrub').getBoundingClientRect();
+  return ((event.clientX - box.left) / box.width) * total;
+}
+
+function bindScrub() {
+  const scrub = $('scrub');
+  let dragging = false;
+  scrub.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    dragging = true;
+    scrub.setPointerCapture(event.pointerId);
+    setPlaying(false);
+    seek(positionFromPointer(event));
+    paint();
+  });
+  scrub.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    seek(positionFromPointer(event));
+    paint();
+  });
+  const end = () => {
+    if (dragging) announce(describeDraft());
+    dragging = false;
+  };
+  scrub.addEventListener('pointerup', end);
+  scrub.addEventListener('pointercancel', end);
+  scrub.addEventListener('keydown', (event) => {
+    const small = total / 200;
+    const moves = {
+      ArrowRight: state.t + small, ArrowUp: state.t + small,
+      ArrowLeft: state.t - small, ArrowDown: state.t - small,
+      PageUp: state.t + small * 10, PageDown: state.t - small * 10,
+      Home: 0, End: total,
+    };
+    if (!(event.key in moves)) return;
+    event.preventDefault();
+    stepTo(moves[event.key]);
+  });
+}
+
+function bindTransport() {
+  $('play').addEventListener('click', () => {
+    if (state.playing) {
+      setPlaying(false);
+      paint();
+      announce(describeDraft());
+      return;
+    }
+    if (state.t >= total) seek(0);
+    setPlaying(true);
+    paint();
+  });
+  $('next').addEventListener('click', stepForward);
+  $('prev').addEventListener('click', stepBack);
+  $('reset').addEventListener('click', () => stepTo(0));
+  $('prompt').addEventListener('change', (event) => {
+    state.traceIndex = Number(event.target.value);
+    loadTrace();
+    announce(`${trace.label}. ${describeDraft()}`);
+  });
+  bindScrub();
+}
+
+buildControls();
+bindTransport();
+selectCase(0);
+selectArm(state.armIndex);
+announce('');
+
 </script>
 </body>
 </html>

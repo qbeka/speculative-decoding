@@ -1,7 +1,7 @@
 """Build a single offline HTML replay from a recorded run.
 
-The page has no network requests and no live inference. Every number comes from
-raw records, and it says so at the top.
+The page has no network requests and no live inference. The stage shows raw records.
+Results and limits are written in the template, in Details.
 """
 
 import base64
@@ -14,7 +14,10 @@ from specdec.controller import expected_tokens
 from specdec.data import read_jsonl, workload_path
 from specdec.models import TARGET, load_tokenizer
 
-MAX_TRACES_PER_WORKLOAD = 4
+MAX_PROMPTS_PER_CASE = 4
+# The cases a viewer can pick, in the order the page offers them.
+CASES = {"receipts_test": "Receipt", "general_test": "General text"}
+FONTS = ("GeistSerif-Regular", "Geist-Regular", "Geist-Medium")
 
 
 def decode_tokens(tokenizer, record: dict) -> list[dict]:
@@ -41,25 +44,23 @@ def decode_tokens(tokenizer, record: dict) -> list[dict]:
 
 
 def block_view(tokenizer, record: dict) -> list[dict]:
+    """Return each draft as it was proposed, with the token the large model added after it."""
     views = []
-    start = record["prefill_s"]
+    position = 0
     for block in record["blocks"]:
+        position += block["delivered"]
         rejected_at = block["rejected_at"]
-        rejected_text = None
-        if rejected_at is not None:
-            rejected_text = tokenizer.decode([block["draft_tokens"][rejected_at]])
         views.append(
             {
-                "start_s": start,
                 "end_s": block["finished_at_s"],
-                "drafted": block["drafted"],
+                "draft_ms": 1000 * block["proposal_s"],
+                "check_ms": 1000 * block["verification_s"],
+                "draft": [tokenizer.decode([token]) for token in block["draft_tokens"]],
                 "accepted": block["accepted"],
-                "delivered": block["delivered"],
                 "rejected_at": rejected_at,
-                "rejected_text": rejected_text,
+                "written": tokenizer.decode([record["tokens"][position - 1]]),
             }
         )
-        start = block["finished_at_s"]
     return views
 
 
@@ -82,12 +83,13 @@ def check_decisions(record: dict, max_block_length: int) -> None:
 
 def arm_view(tokenizer, record: dict, label: str, max_block_length: int) -> dict:
     check_decisions(record, max_block_length)
+    decisions = record.get("decisions")
     return {
         "label": label,
         "wall_s": record["wall_s"],
         "tokens": decode_tokens(tokenizer, record),
         "blocks": block_view(tokenizer, record),
-        "decisions": record.get("decisions"),
+        "acceptance": [d["acceptance"] for d in decisions] if decisions else None,
     }
 
 
@@ -97,24 +99,73 @@ def block_variety(record: dict) -> int:
     return sum(first != second for first, second in zip(lengths, lengths[1:], strict=False))
 
 
+def rejects_after_accepting(record: dict) -> bool:
+    """A first draft that shows an accepted token and a rejection teaches the idea at once."""
+    first = record["blocks"][0]
+    return first["accepted"] > 0 and first["rejected_at"] is not None
+
+
 def trace_label(example: dict, workload: str) -> str:
-    """Name a recording the way a viewer would: by what kind of document it is."""
+    """Name a recording the way a viewer would: by what the text is."""
     if workload.startswith("general"):
-        return f"General text: {example['prompt'][:52]}"
-    return f"{example['family'].replace('_', ' ').capitalize()} receipt, {example['id'][-4:]}"
+        return example["prompt"]
+    family = example["family"].replace("_", " ").capitalize()
+    return f"{family} receipt, {example['truth']['merchant']}"
 
 
-def page_text(run_dir: Path) -> dict:
-    """Read the recorded numbers shown on the page. A run without a report shows none."""
-    path = run_dir / "report" / "page.json"
-    text = json.loads(path.read_text()) if path.exists() else {}
-    fallback = "Recorded performance from a saved run. Nothing runs in your browser."
-    return {
-        "provenance": text.get("provenance", fallback),
-        "headline": text.get("headline", []),
-        "claims": text.get("claims", []),
-        "footer": text.get("footer", []),
-    }
+def pick_recordings(records: list[dict], label_of) -> list[dict]:
+    """Keep the recording with the most length changes per label, then the top labels."""
+    best = {}
+    for record in sorted(records, key=block_variety, reverse=True):
+        best.setdefault(label_of(record), record)
+    picked = list(best.values())[:MAX_PROMPTS_PER_CASE]
+    return sorted(picked, key=rejects_after_accepting, reverse=True)
+
+
+def split_prompt(prompt: str) -> tuple[str, str]:
+    """Separate a receipt prompt's first instruction from the receipt it was given."""
+    task, separator, receipt = prompt.partition("\n\nReceipt:\n")
+    if not separator:
+        return "", prompt
+    return task.split(". ")[0] + ".", receipt
+
+
+def case_view(tokenizer, records, workload, arms, adaptive_name, max_block_length) -> list[dict]:
+    examples = {row["id"]: row for row in read_jsonl(workload_path(workload))}
+    here = [r for r in records if r["workload"] == workload]
+    label_of = lambda record: trace_label(examples[record["prompt_id"]], workload)  # noqa: E731
+    traces = []
+    for anchor in pick_recordings([r for r in here if r["arm"] == adaptive_name], label_of):
+        matching = {
+            r["arm"]: r
+            for r in here
+            if r["prompt_id"] == anchor["prompt_id"] and r["repeat"] == anchor["repeat"]
+        }
+        if not all(name in matching for name in arms):
+            continue
+        example = examples[anchor["prompt_id"]]
+        task, source = split_prompt(example["prompt"])
+        traces.append(
+            {
+                "label": label_of(anchor),
+                "task": task,
+                "source": source,
+                "arms": [
+                    arm_view(tokenizer, matching[name], label, max_block_length)
+                    for name, label in arms.items()
+                ],
+            }
+        )
+    return traces
+
+
+def embedded_styles(package) -> str:
+    """Inline the shared stylesheet and its fonts, so the page is one file."""
+    css = package.joinpath("demo_foundation.css").read_text()
+    for name in FONTS:
+        font = package.joinpath(f"fonts/{name}.woff2").read_bytes()
+        css = css.replace(f"/*{name}*/", base64.b64encode(font).decode())
+    return css
 
 
 def build_demo(
@@ -124,41 +175,17 @@ def build_demo(
     records = [r for r in load_records(run_dir / "raw.jsonl") if r["batch_size"] == 1]
     tokenizer = load_tokenizer(TARGET)
     adaptive_name = next(name for name in arms if name.startswith("adaptive"))
-    traces = []
-    for workload in sorted({record["workload"] for record in records}):
-        examples = {row["id"]: row for row in read_jsonl(workload_path(workload))}
-        chosen = [r for r in records if r["workload"] == workload and r["arm"] == adaptive_name]
-        chosen.sort(key=block_variety, reverse=True)
-        for anchor in chosen[:MAX_TRACES_PER_WORKLOAD]:
-            matching = {
-                r["arm"]: r
-                for r in records
-                if r["prompt_id"] == anchor["prompt_id"]
-                and r["repeat"] == anchor["repeat"]
-                and r["workload"] == workload
-            }
-            if not all(name in matching for name in arms):
-                continue
-            example = examples[anchor["prompt_id"]]
-            traces.append(
-                {
-                    "label": trace_label(example, workload),
-                    "prompt": example["prompt"],
-                    "arms": [
-                        arm_view(tokenizer, matching[name], label, max_block_length)
-                        for name, label in arms.items()
-                    ],
-                }
-            )
-    if not traces:
+    cases = []
+    for workload, name in CASES.items():
+        traces = case_view(tokenizer, records, workload, arms, adaptive_name, max_block_length)
+        if traces:
+            cases.append({"name": name, "traces": traces})
+    if not cases:
         raise ValueError(f"no prompt was recorded by every arm in {list(arms)}")
-    data = {**page_text(run_dir), "max_block_length": max_block_length, "traces": traces}
     package = resources.files("specdec")
     template = package.joinpath("demo_template.html").read_text()
-    # The one typeface is embedded, so the page makes no network requests.
-    font = package.joinpath("fonts/GeistSerif-Regular.woff2").read_bytes()
-    template = template.replace("/*FONT*/", base64.b64encode(font).decode())
+    template = template.replace("/*FOUNDATION*/", embedded_styles(package))
     # Escaping < keeps a token containing </script> from ending the data block.
-    payload = json.dumps(data).replace("<", "\\u003c")
+    payload = json.dumps({"cases": cases}).replace("<", "\\u003c")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(template.replace("__DATA__", payload))
