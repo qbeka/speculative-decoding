@@ -37,6 +37,11 @@ PART_COLORS = {
     "prefill": "#a98200",
 }
 LAW_AUDIT = Path("runs/law_audit/mps.json")
+# This arm's recorded name says heuristic and k3, but the run set neither, so the library
+# defaults applied. See decision 7. The raw records keep the old name.
+DISPLAY_NAMES = {"assisted/135m/k3/heuristic": "assisted/135m/library-defaults"}
+# Computed after the run, so they sit apart from the frozen comparisons.
+EXPLORATORY = [("fixed/distilled-30/k12", "fixed/135m/k3", "receipts_test", 1)]
 matplotlib.rcParams["font.family"] = ["Helvetica Neue", "Arial", "sans-serif"]
 
 
@@ -48,6 +53,10 @@ def style_axis(axis) -> None:
     axis.tick_params(colors=MUTED, length=0)
     axis.grid(axis="x", color=GRID, linewidth=0.8)
     axis.set_axisbelow(True)
+
+
+def shown(arm: str) -> str:
+    return DISPLAY_NAMES.get(arm, arm)
 
 
 def group_key(record: dict) -> tuple[str, int, str]:
@@ -101,7 +110,7 @@ def cold_rows(run_dir: Path) -> list[list]:
     return [
         [
             workload,
-            arm,
+            shown(arm),
             number(sum(r["load_s"] for r in group) / len(group)),
             number(sum(r["ttft_s"] for r in group) / len(group), 3),
             number(sum(r["wall_s"] for r in group) / len(group)),
@@ -167,7 +176,9 @@ def plot_comparisons(comparisons: list, out_path: Path, kinds: dict[str, str]) -
                 fontsize=8.5,
             )
         axis.axvline(1.0, color=INK, linewidth=1)
-        axis.set_yticks(range(len(items)), [item.arm for item in items], fontsize=8.5, color=INK)
+        axis.set_yticks(
+            range(len(items)), [shown(item.arm) for item in items], fontsize=8.5, color=INK
+        )
         axis.set_ylim(-0.7, tallest - 0.3)
         axis.set_title(
             f"{key[0]}, batch size {key[1]}", loc="left", fontsize=10.5, color=INK, weight="bold"
@@ -270,6 +281,7 @@ def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, ite
     shifted = find_comparison(comparisons, adaptive, fixed, "general_test", batch)
     fixed_shifted = find_comparison(comparisons, fixed, "target", "general_test", batch)
     adaptive_shifted = find_comparison(comparisons, adaptive, "target", "general_test", batch)
+    stock_short = fastest_of_this_engine(comparisons, "general_test", batch)
     draws, low_p, high_p = law_audit_range()
     chip = manifest["hardware"]["chip"]
     memory_gb = int(manifest["hardware"]["memory_bytes"]) / 2**30
@@ -281,14 +293,15 @@ def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, ite
             {"value": f"{fastest.ratio:.2f}x", "label": "fastest on unseen receipts"},
             {"value": f"{stats['tokens_per_pass']:.1f}", "label": "tokens per large model pass"},
             {"value": f"{item.ratio:.2f}x", "label": "adaptive against the best fixed length"},
-            {"value": f"{shifted.ratio:.2f}x", "label": "adaptive when the text changes"},
+            {"value": f"{shifted.ratio:.2f}x", "label": "adaptive over fixed on new text"},
         ],
         "claims": [
             {
                 "title": "The output follows the large model",
                 "text": "The sampler is checked by enumerating every path on small cases, and "
-                f"by {draws} draws per arm on real weights. Its p-values ran from {low_p:.2f} "
-                f"to {high_p:.2f}, and a deliberately wrong sampler failed the same test.",
+                f"by {draws} draws per arm on real weights at short drafts, with p-values from "
+                f"{low_p:.2f} to {high_p:.2f}. A control that used the draft alone failed the "
+                "same test.",
             },
             {
                 "title": "The test prompts stayed unseen",
@@ -303,10 +316,12 @@ def page_text(run_dir: Path, frozen: dict, comparisons: list, summary: dict, ite
                 "fixed length wins when the text looks like what it was tuned for.",
             },
             {
-                "title": "Adaptive protects against the wrong tuning",
+                "title": "Adaptive limits the damage from wrong tuning",
                 "text": "On text the draft was not trained for, the same fixed length fell to "
                 f"{fixed_shifted.ratio:.2f}x of the large model alone. Adaptive shortened its "
-                f"drafts and held {adaptive_shifted.ratio:.2f}x.",
+                f"drafts and lost less, at {adaptive_shifted.ratio:.2f}x. Speculating was still "
+                f"slower than not speculating, and the stock draft at a short fixed length "
+                f"reached {stock_short.ratio:.2f}x.",
             },
         ],
         "footer": [
@@ -344,7 +359,7 @@ def build_report(run_dir: Path) -> None:
         [
             workload,
             batch,
-            arm,
+            shown(arm),
             s["requests"],
             s["tokens"],
             number(s["median_tokens_per_s"], 1),
@@ -379,14 +394,26 @@ def build_report(run_dir: Path) -> None:
         [
             item.workload,
             item.batch_size,
-            item.arm,
-            item.baseline,
+            shown(item.arm),
+            shown(item.baseline),
             f"{item.ratio:.3f}",
             f"{item.low:.3f} to {item.high:.3f}",
+            f"{item.crossed_low:.3f} to {item.crossed_high:.3f}",
+            ", ".join(f"{value:.3f}" for value in item.by_repeat),
             item.units,
             item.repeats,
         ]
         for item in comparisons
+    ]
+    exploratory_rows = [
+        [
+            item.arm,
+            item.baseline,
+            f"{item.ratio:.3f}",
+            f"{item.crossed_low:.3f} to {item.crossed_high:.3f}",
+            ", ".join(f"{value:.3f}" for value in item.by_repeat),
+        ]
+        for item in (compare(records, *row) for row in EXPLORATORY)
     ]
     comparison_headers = [
         "Workload",
@@ -394,7 +421,9 @@ def build_report(run_dir: Path) -> None:
         "Arm",
         "Baseline",
         "Ratio",
-        "95 percent interval",
+        "Frozen interval",
+        "Crossed interval",
+        "By repeat",
         "Units",
         "Repeats",
     ]
@@ -402,7 +431,7 @@ def build_report(run_dir: Path) -> None:
         [
             workload,
             batch,
-            arm,
+            shown(arm),
             f"{value['field_accuracy']:.3f}",
             value["fields_scored"],
             f"{value['json_parse_rate']:.3f}",
@@ -418,13 +447,28 @@ def build_report(run_dir: Path) -> None:
             f"batch size {primary['batch_size']}: ratio {decision_item.ratio:.3f}, 95 percent "
             f"interval {decision_item.low:.3f} to {decision_item.high:.3f}. Rule: supported if "
             f"the lower bound exceeds {primary['minimum_ratio']}. "
-            f"Result: {'supported' if supported else 'not supported'}.",
+            f"Result: {'supported' if supported else 'not supported'}. Crossed interval "
+            f"{decision_item.crossed_low:.3f} to {decision_item.crossed_high:.3f}.",
             "## Machine load",
-            f"{machine_load(records)} Arms ran in a shuffled order on every repeat, so any "
-            "other work on the machine falls on all of them, but it adds noise.",
+            f"{machine_load(records)} Load is sampled once per pass of an arm, at its end. "
+            "Arm order was shuffled on every repeat, so other work falls on all arms, but a "
+            "loaded pass runs slower, so it can bias a single pass.",
             "## Paired comparisons",
-            "One unit is one prompt at batch size 1, or one static batch above that.",
+            "One unit is one prompt at batch size 1, or one static batch above that. The "
+            "frozen interval is the two-level bootstrap the plan named. It conditions on these "
+            "passes, because one repeat of one arm is one process and a slow pass hits every "
+            "prompt in it. The crossed interval resamples prompts and repeats separately, so it "
+            "counts that shock. Three repeats estimate it only roughly, and batch size 4 has "
+            "few units.",
             markdown_table(comparison_headers, comparison_rows),
+            "`assisted/135m/library-defaults` is recorded as `assisted/135m/k3/heuristic`. That "
+            "run set no schedule, so it used the library defaults: constant length 20 with "
+            "confidence threshold 0.4.",
+            "## Exploratory comparisons",
+            "Computed after the run. Not part of the frozen plan.",
+            markdown_table(
+                ["Arm", "Baseline", "Ratio", "Crossed interval", "By repeat"], exploratory_rows
+            ),
             "## Arm summaries",
             markdown_table(headers, rows),
             "## Cold requests",

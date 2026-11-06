@@ -10,9 +10,11 @@ from specdec.analysis import (
     arm_summary,
     bootstrap_ratio,
     compare,
+    crossed_interval,
     fit_cost_prior,
     load_records,
     percentile,
+    repeat_ratios,
     unit_rates,
 )
 
@@ -133,3 +135,20 @@ def test_load_records_falls_back_to_the_compressed_copy(tmp_path):
     raw = tmp_path / "raw.jsonl"
     (tmp_path / "raw.jsonl.gz").write_bytes(gzip.compress(b'{"arm": "target"}\n'))
     assert load_records(raw) == [{"arm": "target"}]
+
+
+def test_a_shock_to_one_whole_repeat_widens_only_the_crossed_interval():
+    units, repeats = range(24), range(3)
+    log_ratios = {
+        (unit, repeat): (0.3 if repeat == 0 else 0.0) + 0.001 * unit
+        for unit in units
+        for repeat in repeats
+    }
+    _, low, high = bootstrap_ratio(log_ratios)
+    crossed_low, crossed_high = crossed_interval(log_ratios)
+    assert crossed_high / crossed_low > 1.2 * high / low
+
+
+def test_repeat_ratios_are_in_repeat_order():
+    log_ratios = {(0, 0): math.log(2.0), (1, 0): math.log(2.0), (0, 1): 0.0, (1, 1): 0.0}
+    assert repeat_ratios(log_ratios) == pytest.approx([2.0, 1.0])

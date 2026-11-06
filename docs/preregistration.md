@@ -70,6 +70,11 @@ Latency under open-loop arrival is left out: batching here is static.
 
 The plan above did not change. `runs/final/v1` was discarded for a seed bug, and
 `runs/final/v2` repeats the same plan with independent seeds. See decision 6 in
-`DECISIONS.md`. The primary claim was not supported in v1, and that result was known
-before v2 ran. Nothing was tuned between the two runs.
+`DECISIONS.md`. In v1 the primary ratio was 1.041, interval 0.965 to 1.124, so the claim was
+not supported, and that result was known before v2 ran. Nothing was tuned between the two runs.
+
+Two things in this plan were not delivered as written. The heuristic comparison ran the library
+defaults instead (decision 7). Validation used the first 12 prompts of each file, so the `ride`
+family never ran (decision 9). The 1 minute load average was sampled once per pass of an arm, not
+with every request.
 

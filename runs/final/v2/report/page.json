@@ -15,13 +15,13 @@
     },
     {
       "value": "2.37x",
-      "label": "adaptive when the text changes"
+      "label": "adaptive over fixed on new text"
     }
   ],
   "claims": [
     {
       "title": "The output follows the large model",
-      "text": "The sampler is checked by enumerating every path on small cases, and by 1500 draws per arm on real weights. Its p-values ran from 0.08 to 0.61, and a deliberately wrong sampler failed the same test."
+      "text": "The sampler is checked by enumerating every path on small cases, and by 1500 draws per arm on real weights at short drafts, with p-values from 0.08 to 0.61. A control that used the draft alone failed the same test."
     },
     {
       "title": "The test prompts stayed unseen",
@@ -32,8 +32,8 @@
       "text": "Adaptive needed a 95 percent interval above 1.00 against the best fixed length. It came in at 0.87 to 0.97, so the claim is not supported. A well tuned fixed length wins when the text looks like what it was tuned for."
     },
     {
-      "title": "Adaptive protects against the wrong tuning",
-      "text": "On text the draft was not trained for, the same fixed length fell to 0.37x of the large model alone. Adaptive shortened its drafts and held 0.87x."
+      "title": "Adaptive limits the damage from wrong tuning",
+      "text": "On text the draft was not trained for, the same fixed length fell to 0.37x of the large model alone. Adaptive shortened its drafts and lost less, at 0.87x. Speculating was still slower than not speculating, and the stock draft at a short fixed length reached 1.23x."
     }
   ],
   "footer": [

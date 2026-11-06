@@ -77,6 +77,39 @@ def bootstrap_ratio(log_ratios: dict[tuple[int, int], float]) -> tuple[float, fl
     return math.exp(point), math.exp(percentile(means, 0.025)), math.exp(percentile(means, 0.975))
 
 
+def crossed_interval(log_ratios: dict[tuple[int, int], float]) -> tuple[float, float]:
+    """Return a 95 percent interval that resamples units and repeats separately.
+
+    One repeat of one arm is one process, so a slow pass hits every prompt in it. The
+    two-level interval above cannot see that shock, because it picks repeats inside each
+    unit. Here one draw of repeats applies to all units. With three repeats this is
+    still a rough estimate of variation between passes.
+    """
+    units = sorted({unit for unit, _ in log_ratios})
+    repeats = sorted({repeat for _, repeat in log_ratios})
+    rng = random.Random(BOOTSTRAP_SEED)
+    means = []
+    for _ in range(BOOTSTRAP_SAMPLES):
+        chosen_units = rng.choices(units, k=len(units))
+        chosen_repeats = rng.choices(repeats, k=len(repeats))
+        values = [
+            log_ratios[(unit, repeat)]
+            for unit in chosen_units
+            for repeat in chosen_repeats
+            if (unit, repeat) in log_ratios
+        ]
+        means.append(sum(values) / len(values))
+    return math.exp(percentile(means, 0.025)), math.exp(percentile(means, 0.975))
+
+
+def repeat_ratios(log_ratios: dict[tuple[int, int], float]) -> list[float]:
+    """Return the geometric mean ratio of each repeat, in repeat order."""
+    by_repeat: dict[int, list[float]] = defaultdict(list)
+    for (_unit, repeat), value in log_ratios.items():
+        by_repeat[repeat].append(value)
+    return [math.exp(sum(v) / len(v)) for _, v in sorted(by_repeat.items())]
+
+
 @dataclass(frozen=True)
 class Comparison:
     arm: str
@@ -88,6 +121,9 @@ class Comparison:
     high: float
     units: int
     repeats: int
+    crossed_low: float
+    crossed_high: float
+    by_repeat: tuple[float, ...]
 
 
 def compare(records: list[dict], arm: str, baseline: str, workload: str, batch_size: int):
@@ -104,6 +140,7 @@ def compare(records: list[dict], arm: str, baseline: str, workload: str, batch_s
         raise ValueError(f"no shared units for {arm} and {baseline} on {workload}")
     log_ratios = {unit: math.log(first[unit] / second[unit]) for unit in shared}
     ratio, low, high = bootstrap_ratio(log_ratios)
+    crossed_low, crossed_high = crossed_interval(log_ratios)
     return Comparison(
         arm,
         baseline,
@@ -114,6 +151,9 @@ def compare(records: list[dict], arm: str, baseline: str, workload: str, batch_s
         high,
         units=len({unit for unit, _ in shared}),
         repeats=len({repeat for _, repeat in shared}),
+        crossed_low=crossed_low,
+        crossed_high=crossed_high,
+        by_repeat=tuple(repeat_ratios(log_ratios)),
     )
 
 

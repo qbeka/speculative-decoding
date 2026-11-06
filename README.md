@@ -7,27 +7,29 @@ controller decides how far to draft.
 The project asks one question: can a controller that tracks verification cost and recent
 acceptance beat the best tuned fixed draft length? On the frozen test, **the answer is no.**
 A well tuned fixed length won. The controller's value showed up somewhere else: when the
-text stopped looking like what the system was tuned for, it kept working and the fixed
-length did not.
+text stopped looking like what the system was tuned for, it lost far less than the fixed
+length did. A short fixed length on the stock draft avoided that loss too, so the controller
+is protection against a badly chosen length, not a speedup.
 
 [Open the replay](site/index.html) to watch three decoders work the same recorded prompt.
 
 | | |
 |---|---|
-| **Fastest on unseen receipts** | 2.27x the large model alone, 95% interval 2.15 to 2.39. 62.7 tokens/s against 28.1, with a distilled draft at a fixed length of 12 |
+| **Fastest on unseen receipts** | 2.27x the large model alone, 95% interval 2.05 to 2.55. Median 62.7 tokens/s against 28.1, with a distilled draft at a fixed length of 12 |
 | **Main claim** | Not supported. Adaptive ran at 0.92x of the best fixed length, interval 0.87 to 0.97, and the rule needed the whole interval above 1.00 |
-| **When the text changes** | The same fixed length fell to 0.37x of the large model alone. Adaptive held 0.87x, a gain of 2.37x, interval 2.28 to 2.46 |
-| **Distillation** | 1.31x faster than the best fixed length on the stock draft, at the same size and draft cost, interval 1.25 to 1.37. This comparison was not in the frozen plan |
+| **When the text changes** | The same fixed length fell to 0.37x of the large model alone. Adaptive lost less at 0.87x, a gain of 2.37x, interval 2.07 to 2.64 |
+| **Distillation** | 1.31x faster than the stock draft at the better of its two tested lengths, at the same size and draft cost, interval 1.23 to 1.39. This comparison was not in the frozen plan |
 | **Accepted work** | 9.4 tokens delivered per large model pass on unseen receipts |
-| **Exact sampling** | Output followed the large model in 1,500 draws per arm on real weights, p from 0.08 to 0.61. A deliberately wrong sampler scored p = 0.0 |
-| **Against Transformers** | Same speed as assisted generation at the same draft and length: 1.03x on receipts, interval 1.00 to 1.05, and 0.99x on general text, interval 0.96 to 1.02 |
-| **Concurrent requests** | 1.49x at batch size 4, interval 1.30 to 1.65, with static batching |
-| **Tests** | 120 tests, including exact-law checks that walk every path through the real engine |
+| **Exact sampling** | Every path enumerated on small cases. On real weights, 1,500 draws per arm at drafts of up to 2 tokens gave p from 0.08 to 0.61, and a control that used the draft alone failed |
+| **Against Transformers** | Same speed as assisted generation at the same draft and length: 1.03x on receipts, interval 0.97 to 1.08, and 0.99x on general text, interval 0.96 to 1.02 |
+| **Concurrent requests** | 1.49x at batch size 4, interval 1.28 to 1.65, with static batching |
+| **Tests** | 123 tests, including exact-law checks that walk every path through the real engine |
 | **Scale** | 2,754 timed requests: 17 arms, 54 prompts, 3 repeats |
 
 Measured on one Apple M5 Pro with 48 GB of memory, using float32 on Metal and SmolLM2 models.
 The test receipts are synthetic. [What the numbers leave out](#what-the-numbers-leave-out)
-has the details.
+has the details. Intervals here resample prompts and repeats separately, except the main claim,
+which uses the interval the plan named.
 
 ## Run it
 
@@ -57,13 +59,14 @@ uv run specdec generate "Write one sentence about the sea." --block-length 0
 
 ## Check it
 
-Run the correctness suite. It needs no downloaded weights and takes about 20 seconds.
+Run the correctness suite. It needs no downloaded weights and takes about 30 seconds.
 
 ```bash
 uv run pytest -q
 ```
 
-Rebuild every table, plot and the replay from the raw records. No model runs.
+Rebuild every table, plot and the replay from the raw records. No model runs, but the
+tokenizer downloads on first use.
 
 ```bash
 make site
@@ -71,8 +74,8 @@ make site
 
 | Command | What it does | Time |
 |---|---|---:|
-| `uv run pytest -q` | Runs the correctness suite | 20 s |
-| `uv run python benchmarks/law_audit.py` | Tests the exact law on real weights | 3 hours |
+| `uv run pytest -q` | Runs the correctness suite | 30 s |
+| `uv run python benchmarks/law_audit.py --out runs/law_audit/new.json` | Tests the exact law on real weights | Hours |
 | `uv run specdec teacher` | Records teacher sequences for distillation | 20 min |
 | `uv run specdec distill --layers 8 --out artifacts/drafts/distilled-8` | Trains a draft. Repeat with `--layers 30 --steps 750` | 1 to 2 hours each |
 | `uv run python benchmarks/freeze_plan.py --validation runs/validation/v1` | Writes `config/frozen.json` from a validation sweep | Seconds |
@@ -111,23 +114,31 @@ picks the length with the highest expected tokens per second.
 
 ## What the numbers leave out
 
-- **One machine.** Every number comes from one laptop. Other work ran on it, with a median 1
-  minute load average of 3.8 and a peak of 16.8. Arm order was shuffled on every repeat, so
-  load falls on all arms, but it adds noise.
+- **One machine, three passes.** Every number comes from one laptop. Other work ran on it, with
+  a median 1 minute load average of 3.8 and a peak of 16.8, sampled once per pass. Arm order was
+  shuffled, but a loaded pass runs slower, and the large model alone was 16 percent slower on
+  every receipt in its first pass. Three repeats give only a rough view of that variation.
 - **The first final run was thrown out.** A bug gave nearly every request the same seed. The
-  rerun used the same frozen plan, and only it is quoted here. See decision 6 in
-  `docs/DECISIONS.md`.
-- **The validation sweep had the same bug.** It only chose settings, and it was not rerun, so
-  those settings may be less well chosen than they look. The 8-layer draft was picked for the
-  primary test on those numbers, and the 30-layer draft then beat it on the test split.
+  rerun used the same frozen plan and the same arm order, and only it is quoted here. The
+  discarded run had the main ratio at 1.04x, interval 0.97 to 1.12, so the size of adaptive's
+  loss is less certain than one run suggests. See decision 6 in `docs/DECISIONS.md`.
+- **Validation was thin.** It ran the first 12 prompts of each file, so the `ride` family never
+  ran, on one repeat with the same seed bug. It only chose settings and was not rerun, so those
+  settings may be weaker than they look. It picked the 8-layer draft for the main test, and the
+  30-layer draft then beat it on the test split.
+- **One baseline ran the wrong settings.** The arm meant to test the library's heuristic schedule
+  ran the library defaults instead, so that comparison was not delivered. See decision 7.
 - **Speculation is burstier.** Tokens arrive in groups. On receipts, the fastest arm's median
   time to first token was 0.28 s against 0.17 s for the large model alone, and its p95 gap
   between tokens was 149 ms against 43 ms.
-- **Distilled drafts only work on what they learned.** On general text, the fastest receipt
-  setup ran at 0.48x of the large model alone. At batch size 4 on general text, every setup
-  except the stock draft was slower than no speculation at all.
+- **Distilled drafts pay for their focus.** On general text, the fastest receipt setup ran at
+  0.48x of the large model alone. At batch size 4 on general text, every distilled setup tested
+  was slower than no speculation at all, and only the stock draft at a fixed length beat it.
 - **Batching is static.** One draft length is shared per round, and new requests cannot join
   a running batch. This is not an open-loop serving test.
+- **Exact up to rounding.** float32 still varies a little with block size, up to 4e-5 total
+  variation per position. The law audit on real weights covered short drafts at batch size 1.
+  Longer drafts and batches are checked by exact tests on tiny models.
 - **Small models.** The target is SmolLM2 1.7B. Larger targets change the cost ratio that all
   of this depends on. Field accuracy on receipts was about 64 percent for every arm, and the
   arms differ only by sampling noise because they share one output law.

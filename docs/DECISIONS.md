@@ -75,11 +75,34 @@ Intervals over prompts would then be too narrow.
 
 It came up while checking why JSON parsing failed only at batch size 4. That turned out
 to be a coincidence of those random paths, not an engine fault: at equal seeds, batch
-size 1 and batch size 4 gave identical tokens on 120 of 120 receipts compared.
+size 1 and batch size 4 gave identical tokens on all 324 requests compared in `runs/final/v2`.
 
 The fix hashes the prompt id and repeat, and `tests/test_bench.py` covers it.
 `config/frozen.json` did not change. `runs/final/v2` reruns it, and it is the only run
 the README, the page and the report quote. `runs/final/v1` stays in the repository as
-the record of this failure. The validation sweep had the same bug. It only chose
+the record of this failure. Its primary ratio was 1.04, interval 0.965 to 1.124, against
+0.915 in v2. Both fail the rule, but they disagree on direction, and v2 is the valid run. The validation sweep had the same bug. It only chose
 settings, so it was not rerun, and those settings may be less well chosen than they look.
+
+## 7. The heuristic baseline did not run the heuristic schedule
+
+The arm recorded as `assisted/135m/k3/heuristic` set no schedule, so Transformers used its
+defaults: a constant length of 20 with a confidence threshold of 0.4. The review caught this
+from recorded bursts of up to 21 tokens. The planned comparison was not delivered, and the
+reports label the arm `assisted/135m/library-defaults`. The raw records and `config/frozen.json`
+keep the old name. `specdec/bench.py` now sets the schedule, so a future run would test it.
+
+## 8. Timing intervals were too narrow
+
+The two-level bootstrap resamples repeats inside each prompt. One repeat of one arm is one
+process, so a slow pass hits every prompt together, and the bootstrap cannot see it. Several
+per-repeat means fell outside the stated intervals. The primary decision keeps the interval the plan
+named, and its conclusion holds under both. Everything else now quotes a crossed bootstrap.
+
+## 9. Validation was thinner than the plan said
+
+`VALIDATION_LIMIT` took the first 12 prompts of each file. That gave 8 fuel and 4 hardware
+receipts, so the `ride` family never ran, and 12 of 30 general prompts. With one repeat and the seed
+bug, the sweep rested on 4 distinct seeds. It only chose settings, so the test results stand, but
+it explains why the 8-layer draft looked better than it was.
 
