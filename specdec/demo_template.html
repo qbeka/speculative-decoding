@@ -10,7 +10,8 @@
 </style>
 <style>
 :root {
-  --stage-height: clamp(548px, calc(100svh - 164px), 700px);
+  /* Short enough that the draft never floats in empty room on a tall screen. */
+  --stage-height: clamp(548px, calc(100svh - 164px), 620px);
   --kept: #0f6b4f;
   --kept-wash: #157a5a14;
   --kept-line: #157a5a59;
@@ -229,7 +230,7 @@
   .input { border-right: 0; }
 }
 @media (max-width: 559px) {
-  :root { --pad: 12px; --name-column: 124px; --read-column: 142px; }
+  :root { --pad: 12px; --name-column: 124px; --read-column: 172px; }
   .title { margin-bottom: 12px; }
   .title h1 { font-size: 29px; line-height: 34px; }
   .bar { flex-wrap: wrap; row-gap: 6px; }
