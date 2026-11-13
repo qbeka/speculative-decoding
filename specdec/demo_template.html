@@ -276,7 +276,7 @@
 <body>
 <div class="shell">
   <header class="topbar">
-    <a class="quiet back" href="https://www.qendrimbeka.com/">
+    <a class="quiet back" href="/#projects">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Back
     </a>
@@ -393,7 +393,7 @@
       <p class="prose">The plan was frozen before the test split ran. The <a href="https://github.com/qbeka/speculative-decoding/blob/main/docs/report.md">report</a> has every comparison and how it was run.</p>
 
       <div class="page-end">
-        <a class="quiet back" href="https://www.qendrimbeka.com/">
+        <a class="quiet back" href="/#projects">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Back
         </a>
@@ -403,6 +403,13 @@
   </main>
 </div>
 
+<script>
+// A story page sends ?from=<slug>, so Back returns to that story.
+(() => {
+  const from = new URLSearchParams(location.search).get("from");
+  if (from && /^[a-z0-9-]+$/.test(from)) for (const link of document.querySelectorAll("a.back")) link.href = `/work/${from}`;
+})();
+</script>
 <script id="data" type="application/json">__DATA__</script>
 <script>
 const DATA = JSON.parse(document.getElementById('data').textContent);
