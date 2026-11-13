@@ -88,6 +88,7 @@ def test_page_copy_has_no_long_dashes(name):
     assert "–" not in text
 
 
-def test_the_tagline_is_one_sentence_without_a_closing_period():
+def test_the_tagline_lives_in_the_description_only():
     text = resources.files("specdec").joinpath("demo_template.html").read_text()
-    assert "<p>Draft a few tokens and check them together</p>" in text
+    assert '<meta name="description" content="Draft a few tokens and check them together">' in text
+    assert "check them together</p>" not in text
